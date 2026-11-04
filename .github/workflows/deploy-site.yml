@@ -1,0 +1,86 @@
+name: Deploy YiDream website with existing APK
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'site/client/**'
+      - 'site/tools/**'
+      - 'webadb/**'
+      - 'version.json'
+      - 'tests/site_release_test.py'
+      - '.github/workflows/deploy-site.yml'
+      - '.github/workflows/deploy-webadb.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Tester la publication du site sans modifier l’application
+        run: python3 -m unittest discover -s tests -p '*_test.py'
+
+      - name: Préparer l’APK de production déjà publié
+        run: python3 site/tools/prepare-release.py version.json "$RUNNER_TEMP/site-release"
+
+      - name: Vérifier la signature de production conservée
+        run: python3 tests/verify-apk-certificate.py "$RUNNER_TEMP/site-release/yidream.apk" signing-certificate.sha256
+
+      - name: Conserver les fichiers de l’application à l’identique
+        run: |
+          cp "$RUNNER_TEMP/site-release/yidream.apk" webadb/public/yidream.apk
+          cp "$RUNNER_TEMP/site-release/yidream-build.json" webadb/public/yidream-build.json
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Compiler le site administrateur
+        working-directory: webadb
+        run: |
+          npm ci
+          npm run build
+
+      - name: Assembler le site et le manifeste actualisé
+        run: |
+          mv webadb/dist "$RUNNER_TEMP/yidream-admin"
+          mkdir -p webadb/dist/admin webadb/dist/icons
+          cp -R "$RUNNER_TEMP/yidream-admin/." webadb/dist/admin/
+          cp site/client/index.html webadb/dist/index.html
+          cp webadb/assets/icons/yidream-original.png webadb/dist/icons/yidream-original.png
+          cp "$RUNNER_TEMP/site-release/version.json" webadb/dist/version.json
+
+      - name: Configurer GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Préparer l’artefact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          name: github-pages-${{ github.run_attempt }}
+          path: webadb/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Déployer sur GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}

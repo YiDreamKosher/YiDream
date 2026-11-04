@@ -4,14 +4,10 @@ on:
   push:
     branches: [ main, master ]
     paths:
-      - 'site/client/**'
-      - 'webadb/**'
       - 'app/**'
-      - 'version.json'
       - 'build.gradle'
       - 'settings.gradle'
       - 'gradle.properties'
-      - '.github/workflows/deploy-webadb.yml'
   workflow_dispatch: {}
 
 permissions:
@@ -118,7 +114,7 @@ jobs:
       - name: Générer le manifeste avec l'empreinte de l'APK
         run: |
           sha256sum webadb/public/yidream.apk | cut -d ' ' -f1 > "$RUNNER_TEMP/yidream-apk.sha256"
-          jq --rawfile apkSha "$RUNNER_TEMP/yidream-apk.sha256" '.apkSha256 = ($apkSha | gsub("\n"; ""))' version.json > "$RUNNER_TEMP/version.json"
+          jq --rawfile apkSha "$RUNNER_TEMP/yidream-apk.sha256" --arg apkUrl 'https://yidreamkosher.github.io/YiDream/admin/yidream.apk' '.apkUrl = $apkUrl | .apkSha256 = ($apkSha | gsub("\n"; ""))' version.json > "$RUNNER_TEMP/version.json"
 
       - name: Publier l'APK dans les artefacts GitHub Actions
         uses: actions/upload-artifact@v4

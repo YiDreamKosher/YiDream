@@ -4,7 +4,7 @@ Plateforme de gestion d'appareils Android filtrés. Ce dépôt contient l'app An
 
 ## Application Android
 
-YiDream ouvre directement les onglets Accueil, Boutique, Réglages et À propos pour gérer le filtre. Le launcher musical est un projet distinct : [YZ MDM](https://github.com/QinFrance/YZ-MDM). YiDream ne remplace pas l’écran d’accueil Android.
+YiDream ouvre directement les onglets Accueil, Boutique, Réglages et À propos pour gérer le filtre. Le launcher musical est un projet distinct : [YZ MDM](https://github.com/YiDreamKosher/YZ-MDM). YiDream ne remplace pas l’écran d’accueil Android.
 
 ## Contenu
 
@@ -38,9 +38,9 @@ Fusion du design **Suite** (Admin, Android, iOS, Info) avec la logique du config
 
 ## Mise en ligne
 
-1. Pousse ce dossier sur la branche `main` (dépôt `QinFrance/YiDream` pour garder l'adresse actuelle).
+1. Pousse ce dossier sur la branche `main` (dépôt `YiDreamKosher/YiDream` pour garder l'adresse actuelle).
 2. `Settings → Pages → Source : GitHub Actions`.
-3. Le workflow compile l'APK puis publie le site : `https://qinfrance.github.io/YiDream/`.
+3. Le workflow du site publie `https://yidreamkosher.github.io/YiDream/` en conservant l’APK de production déjà publié. Une modification Android déclenche son workflow de compilation séparé.
 
 Si tu publies sous un autre nom de dépôt, ajoute son chemin dans `allowedSites` (`webadb/src/config.js`), sinon l'écran « Site non autorisé » s'affiche.
 
@@ -51,7 +51,7 @@ Si tu publies sous un autre nom de dépôt, ajoute son chemin dans `allowedSites
 - **Ce verrou n'est pas une vraie sécurité** : il tourne dans le navigateur et le hash est lisible dans le code du site. Il empêche un usage accidentel, pas un attaquant. Pour une offre professionnelle, il faudra une authentification côté serveur (comptes, sessions, isolation par revendeur).
 - Le blocage par catégories est appliqué par l'app Android (Device Owner), pas par le site : le site ne fait qu'envoyer `yidream_config.json`.
 - Compatibilité non garantie sur tous les téléphones (Device Owner, WebUSB, constructeur). À documenter au fur et à mesure des tests.
-- Licence : aucune licence open source n'est incluse. Vérifie l'historique public du dépôt `QinFrance/YiDream` avant une diffusion commerciale.
+- Licence : aucune licence open source n'est incluse. Vérifie l'historique public du dépôt `YiDreamKosher/YiDream` avant une diffusion commerciale.
 
 ## Développement local
 
