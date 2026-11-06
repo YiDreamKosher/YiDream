@@ -7,10 +7,8 @@ on:
       - 'site/client/**'
       - 'site/tools/**'
       - 'webadb/**'
-      - 'version.json'
       - 'tests/site_release_test.py'
       - '.github/workflows/deploy-site.yml'
-      - '.github/workflows/deploy-webadb.yml'
   workflow_dispatch: {}
 
 permissions:
@@ -23,7 +21,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      site_only: ${{ steps.scope.outputs.site_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Laisser une publication Android gérer les changements groupés
+        id: scope
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "site_only=true" >> "$GITHUB_OUTPUT"
+          elif ! git rev-parse --verify "$BEFORE^{commit}" >/dev/null 2>&1; then
+            echo "site_only=false" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$BEFORE" "$GITHUB_SHA" -- app build.gradle settings.gradle gradle.properties version.json .github/workflows/deploy-webadb.yml; then
+            echo "site_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "site_only=false" >> "$GITHUB_OUTPUT"
+          fi
   build:
+    needs: changes
+    if: needs.changes.outputs.site_only == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le code

@@ -42,7 +42,7 @@ l'ajoute au site Web ADB et publie le site sur
 [YiDream Pages](https://yidreamkosher.github.io/YiDream/). Quand les secrets de
 signature sont présents, il crée aussi la GitHub Release correspondant à la version de l'APK.
 
-Pour les changements du site ou de la console Web, `Deploy YiDream website with existing APK` réutilise le fichier de production, après vérification de son empreinte et de son certificat. Il conserve son numéro de version et ses octets. Une modification de `version.json` seule ne compile plus Android : si la version correspondante n’est pas encore publiée, la publication du site est refusée. Les changements du code Android continuent à lancer le workflow de compilation.
+Pour les changements du site ou de la console Web, `Deploy YiDream website with existing APK` réutilise le fichier de production, après vérification de son empreinte et de son certificat. Il conserve son numéro de version et ses octets. Les changements du code Android, de `version.json` ou du workflow Android lancent la compilation signée de l’application. Ces fichiers ne déclenchent pas la publication indépendante du site.
 
 Le programme de mise à jour n'accepte que l'URL YiDream publiée et compare le
 SHA-256 du fichier, le paquet, la version annoncée et la compatibilité de

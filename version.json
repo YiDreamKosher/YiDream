@@ -1,7 +1,7 @@
 {
-  "versionCode": 17,
-  "versionName": "v5.9.1",
+  "versionCode": 18,
+  "versionName": "v5.10.0",
   "apkUrl": "https://yidreamkosher.github.io/YiDream/admin/yidream.apk",
   "apkSha256": "",
-  "changelog": "Nouveau design inspiré du site YiDream : boutique, boutons Installer, accueil, sites et réglages. Toutes les fonctions existantes sont conservées."
+  "changelog": "Réglages organisés en cinq sections, navigation au choix, logo réservé à l’accueil, contact WhatsApp et suivi des mises à jour des applications. Connexion aux mises à jour YiDream corrigée."
 }

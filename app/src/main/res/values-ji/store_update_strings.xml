@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="store_no_published_updates">קיין דערהײַנטיקונגען זענען נישט פֿאַרעפֿנטלעכט אין אײַער קראָם פֿאַר די אינסטאַלירטע אַפּס.</string>
+  <string name="store_catalog_current">די ווערסיע אין אײַער קראָם איז שוין אינסטאַלירט.</string>
+  <string name="store_play_updates_title">Google Play דערהײַנטיקונגען</string>
+  <string name="store_play_updates_description">פֿאַר יעדע דערלויבטע אַפּ פֿון Google Play קענט איר קאָנטראָלירן דעם אַפּ־בלאַט אונטן. דערהײַנטיקונגען פֿונעם אַדמיניסטראַטאָר קען מען נאָך אַלץ אינסטאַלירן דורך YiDream.</string>
+  <string name="store_play_version_check">Google Play קאָנטראָלירט די נײַסטע פּאַסיקע ווערסיע פֿאַר אײַער מיטל.</string>
+  <string name="store_play_unavailable">Google Play איז נישט צוטריטלעך אָדער איז באַגרענעצט אויף דעם מיטל. בעט דעם אַדמיניסטראַטאָר צו פֿאַרעפֿנטלעכן די דערהײַנטיקונג אין YiDream.</string>
+  <string name="store_check_play">קאָנטראָלירן אויף Google Play</string>
+</resources>

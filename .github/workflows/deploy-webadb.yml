@@ -8,6 +8,8 @@ on:
       - 'build.gradle'
       - 'settings.gradle'
       - 'gradle.properties'
+      - 'version.json'
+      - '.github/workflows/deploy-webadb.yml'
   workflow_dispatch: {}
 
 permissions:
@@ -119,19 +121,20 @@ jobs:
       - name: Publier l'APK dans les artefacts GitHub Actions
         uses: actions/upload-artifact@v4
         with:
-          name: yidream-${{ env.RELEASE_SIGNING == 'true' && 'release' || 'preview' }}-v5.9.1
+          name: yidream-${{ env.RELEASE_SIGNING == 'true' && 'release' || 'preview' }}-v5.10.0
           path: webadb/public/yidream.apk
           if-no-files-found: error
 
-      - name: Créer la version YiDream v5.9.1
+      - name: Créer la version YiDream v5.10.0
         if: env.RELEASE_SIGNING == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v5.9.1
-          name: YiDream v5.9.1
+          tag_name: v5.10.0
+          name: YiDream v5.10.0
           body: |
-            Nouveau design inspiré du site YiDream : fond clair, titres marine, cartes d’applications et boutons Installer bleus arrondis.
-            Toutes les fonctions existantes sont conservées : association, installation et mises à jour, demandes de sites, langues, réglages et retrait du filtre protégé.
+            Réglages en cinq sections, navigation au choix et logo réservé à l’accueil.
+            Contact WhatsApp, conditions d’utilisation et suivi des mises à jour des applications depuis la boutique.
+            Les mises à jour YiDream utilisent la nouvelle adresse officielle. Toutes les fonctions existantes et le retrait du filtre protégé sont conservés.
           files: webadb/public/yidream.apk
           fail_on_unmatched_files: true
         env:

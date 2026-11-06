@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="store_no_published_updates">לא פורסמו עדכונים בחנות שלך עבור היישומים המותקנים.</string>
+  <string name="store_catalog_current">הגרסה שפורסמה בחנות שלך כבר מותקנת.</string>
+  <string name="store_play_updates_title">עדכוני Google Play</string>
+  <string name="store_play_updates_description">לכל יישום מאושר בקטלוג שמקורו ב־Google Play, ניתן לבדוק את דף היישום למטה. עדכונים שפורסמו על ידי המנהל זמינים להתקנה דרך YiDream.</string>
+  <string name="store_play_version_check">Google Play בודק מהי הגרסה העדכנית התואמת למכשיר שלך.</string>
+  <string name="store_play_unavailable">Google Play אינו זמין או שהשימוש בו מוגבל במכשיר. יש לבקש מהמנהל לפרסם את העדכון ב־YiDream.</string>
+  <string name="store_check_play">בדיקה ב־Google Play</string>
+</resources>

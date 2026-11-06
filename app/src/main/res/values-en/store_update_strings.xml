@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="store_no_published_updates">No updates have been published in your store for installed apps.</string>
+  <string name="store_catalog_current">The version published in your store is already installed.</string>
+  <string name="store_play_updates_title">Google Play updates</string>
+  <string name="store_play_updates_description">Check the listing below for each approved catalog app from Google Play. Updates published by your administrator remain installable through YiDream.</string>
+  <string name="store_play_version_check">Google Play checks the latest version compatible with your device.</string>
+  <string name="store_play_unavailable">Google Play is unavailable or restricted on this device. Ask your administrator to publish the update in YiDream.</string>
+  <string name="store_check_play">Check on Google Play</string>
+</resources>

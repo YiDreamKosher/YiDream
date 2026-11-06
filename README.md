@@ -4,7 +4,19 @@ Plateforme de gestion d'appareils Android filtrés. Ce dépôt contient l'app An
 
 ## Application Android
 
-YiDream ouvre directement les onglets Accueil, Boutique, Réglages et À propos pour gérer le filtre. Le launcher musical est un projet distinct : [YZ MDM](https://github.com/YiDreamKosher/YZ-MDM). YiDream ne remplace pas l’écran d’accueil Android.
+YiDream ouvre les onglets Accueil, Boutique, Sites et Réglages pour gérer les applications et les demandes de sites. Les informations de version et d’utilisation se trouvent dans Réglages. Le launcher musical est un projet distinct : [YZ MDM](https://github.com/YiDreamKosher/YZ-MDM). YiDream ne remplace pas l’écran d’accueil Android.
+
+## Réglages et mises à jour Android (v5.10.0)
+
+Les réglages sont organisés en cinq sections : **Apparence et navigation**, **Langues**, **Informations et conditions**, **Filtrage** et **Contacter l’administrateur**. La navigation peut conserver la barre d’onglets ou utiliser les raccourcis de l’accueil ; ce choix reste enregistré. Le bouton « Retour à l’accueil » et le retour Android permettent de revenir à l’accueil dans le second mode. Le logo est réservé à l’accueil. Le retrait du filtre conserve son code administrateur.
+
+Le contact WhatsApp ouvre une conversation vers **+33 7 66 79 03 52** ; aucun message n’est envoyé automatiquement. Le contact par e-mail reste disponible. Les informations d’utilisation intégrées décrivent les fonctions de l’application ; elles ne remplacent pas les conditions contractuelles et la politique de confidentialité du service, à fournir par son responsable.
+
+La boutique compare les versions installées aux versions **publiées dans le catalogue autorisé**, pour toutes ses applications et celles ajoutées ensuite. « Tout mettre à jour » installe ces APK après vérification de leur empreinte, du paquet, de la version et de la signature Android. L’état est rechargé après le traitement.
+
+Pour les entrées dont la source est une fiche Google Play correspondant exactement au paquet, « Vérifier sur Google Play » ouvre uniquement l’application Google Play officielle. Elle décide de la dernière version compatible et de son installation. Ce bouton reste désactivé lorsque Play est absent, désactivé ou interdit par les restrictions de l’appareil ; YiDream ne désactive aucune protection et n’ouvre pas un navigateur en remplacement.
+
+**Une fiche Google Play ne fournit pas à YiDream la dernière APK.** Sur un téléphone filtré sans accès Play, l’administrateur doit préparer puis publier chaque nouvelle APK autorisée depuis la console YiDream Suite. Le service d’import Play local existant nécessite son fournisseur configuré et démarré sur son ordinateur ; ce changement n’installe pas ce fournisseur et ne crée pas une synchronisation automatique en arrière-plan. Les cinq applications de base restent non installables tant que leurs fichiers ne sont pas publiés.
 
 ## Contenu
 
