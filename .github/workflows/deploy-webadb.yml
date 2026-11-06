@@ -11,9 +11,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: "pages"
@@ -24,11 +22,33 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_signed: ${{ steps.signing.outputs.release_signed }}
+      version_tag: ${{ steps.version.outputs.tag }}
     env:
       RELEASE_SIGNING: ${{ secrets.YIDREAM_KEYSTORE_BASE64 != '' && secrets.YIDREAM_KEY_ALIAS != '' && secrets.YIDREAM_KEY_PASSWORD != '' && secrets.YIDREAM_STORE_PASSWORD != '' }}
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Validate release version
+        id: version
+        run: |
+          python3 - <<'PYVERSION'
+          import json, os, re
+          from pathlib import Path
+          manifest = json.loads(Path("version.json").read_text())
+          gradle = Path("app/build.gradle").read_text()
+          code = re.search(r"versionCode\s+(\d+)", gradle)
+          name = re.search(r'versionName\s+"([^\"]+)"', gradle)
+          if not code or not name or manifest.get("versionCode") != int(code[1]) or manifest.get("versionName") != name[1]:
+              raise SystemExit("Android and manifest versions must match before publication.")
+          tag = manifest["versionName"]
+          if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
+              raise SystemExit("Invalid release tag.")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write("tag=" + tag + "\n")
+          PYVERSION
 
       - name: Vérifier la signature avant publication
         id: signing
@@ -45,7 +65,7 @@ jobs:
 
       # --- Compilation de l'APK Android, pour le bundler dans le site ---
       - name: Installer Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -64,7 +84,7 @@ jobs:
 
       - name: Conserver les captures et contrôles des écrans
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: yidream-ui-previews
           path: |
@@ -117,31 +137,18 @@ jobs:
           jq --rawfile apkSha "$RUNNER_TEMP/yidream-apk.sha256" --arg apkUrl 'https://yidreamkosher.github.io/YiDream/admin/yidream.apk' '.apkUrl = $apkUrl | .apkSha256 = ($apkSha | gsub("\n"; ""))' version.json > "$RUNNER_TEMP/version.json"
 
       - name: Publier l'APK dans les artefacts GitHub Actions
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: yidream-${{ env.RELEASE_SIGNING == 'true' && 'release' || 'preview' }}-v5.9.1
+          name: yidream-${{ env.RELEASE_SIGNING == 'true' && 'release' || 'preview' }}-${{ steps.version.outputs.tag }}-${{ github.run_attempt }}
           path: webadb/public/yidream.apk
           if-no-files-found: error
 
-      - name: Créer la version YiDream v5.9.1
-        if: env.RELEASE_SIGNING == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v5.9.1
-          name: YiDream v5.9.1
-          body: |
-            Nouveau design inspiré du site YiDream : fond clair, titres marine, cartes d’applications et boutons Installer bleus arrondis.
-            Toutes les fonctions existantes sont conservées : association, installation et mises à jour, demandes de sites, langues, réglages et retrait du filtre protégé.
-          files: webadb/public/yidream.apk
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       # --- Compilation et déploiement des deux espaces ---
       - name: Installer Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '22'
+          package-manager-cache: false
 
       - name: Installer les dépendances
         working-directory: webadb
@@ -161,22 +168,60 @@ jobs:
           cp "$RUNNER_TEMP/version.json" webadb/dist/version.json
 
       - name: Configurer GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - name: Préparer l'artefact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
+          name: github-pages-${{ github.run_attempt }}
           path: webadb/dist
 
-  deploy:
+      - name: Remove temporary signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/yidream-release.jks"
+
+  release:
     needs: build
     if: needs.build.outputs.release_signed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download the verified signed APK
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: yidream-release-${{ needs.build.outputs.version_tag }}-${{ github.run_attempt }}
+          path: release
+
+      - name: Publish the signed Android release
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
+        with:
+          tag_name: ${{ needs.build.outputs.version_tag }}
+          target_commitish: ${{ github.sha }}
+          name: YiDream ${{ needs.build.outputs.version_tag }}
+          body: |
+            Sign in with an email code or an administrator activation code before accessing the app.
+            Email and contact phone are required. WhatsApp assistance is available from the sign-in screen.
+            The installed filter stays active while signed out. Requires the matching account service update.
+          files: release/yidream.apk
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    needs: [build, release]
+    if: needs.build.outputs.release_signed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Déployer sur GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
-
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}

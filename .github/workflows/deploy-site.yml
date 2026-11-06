@@ -15,19 +15,48 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      website_only: ${{ steps.paths.outputs.website_only }}
+    steps:
+      - name: Inspect changed paths without publishing
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Route Android updates to the signed APK workflow
+        id: paths
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PREVIOUS_SHA: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "website_only=true" >> "$GITHUB_OUTPUT"
+          elif [ -z "$PREVIOUS_SHA" ] || [ "$PREVIOUS_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "website_only=false" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$PREVIOUS_SHA" "$GITHUB_SHA" -- app build.gradle settings.gradle gradle.properties; then
+            echo "website_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "website_only=false" >> "$GITHUB_OUTPUT"
+            echo "Android changed; the signed APK workflow will publish the site and application together."
+          fi
+
   build:
+    needs: changes
+    if: needs.changes.outputs.website_only == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Tester la publication du site sans modifier l’application
         run: python3 -m unittest discover -s tests -p '*_test.py'
@@ -44,9 +73,10 @@ jobs:
           cp "$RUNNER_TEMP/site-release/yidream-build.json" webadb/public/yidream-build.json
 
       - name: Installer Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '22'
+          package-manager-cache: false
 
       - name: Compiler le site administrateur
         working-directory: webadb
@@ -64,10 +94,10 @@ jobs:
           cp "$RUNNER_TEMP/site-release/version.json" webadb/dist/version.json
 
       - name: Configurer GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - name: Préparer l’artefact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           name: github-pages-${{ github.run_attempt }}
           path: webadb/dist
@@ -75,12 +105,16 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Déployer sur GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
         with:
           artifact_name: github-pages-${{ github.run_attempt }}

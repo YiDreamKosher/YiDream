@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/accountScreen" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:fillViewport="true" android:background="@drawable/bg_app_gradient" android:scrollbars="none">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:orientation="vertical" android:gravity="center_vertical" android:padding="24dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="32dp">
+      <ImageView android:layout_width="44dp" android:layout_height="44dp" android:src="@mipmap/ic_launcher" android:importantForAccessibility="no" />
+      <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+          android:layout_marginStart="10dp" android:text="@string/app_name" android:textSize="20sp"
+          android:textStyle="bold" android:textColor="@color/accent_navy" />
+      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="בס״ד"
+          android:textColor="@color/text_secondary" android:textSize="13sp" android:importantForAccessibility="no" />
+    </LinearLayout>
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="@string/account_title" android:textSize="30sp" android:textStyle="bold"
+        android:letterSpacing="-0.025" android:textColor="@color/accent_navy" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp"
+        android:layout_marginBottom="24dp" android:text="@string/account_subtitle" android:textSize="14sp"
+        android:lineSpacingExtra="3dp" android:textColor="@color/text_secondary" />
+    <LinearLayout android:id="@+id/accountChecking" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:visibility="gone" android:orientation="vertical" android:gravity="center_horizontal"
+        android:padding="24dp" android:background="@drawable/bg_glass_card" android:layout_marginBottom="16dp">
+      <ProgressBar android:id="@+id/accountProgress" android:layout_width="32dp" android:layout_height="32dp" android:indeterminateTint="@color/accent_blue" />
+      <TextView android:id="@+id/accountCheckMessage" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:layout_marginTop="16dp" android:text="@string/account_checking" android:textSize="14sp"
+          android:textColor="@color/text_secondary" android:gravity="center" android:lineSpacingExtra="3dp" android:accessibilityLiveRegion="polite" />
+      <Button android:id="@+id/accountRetry" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:layout_marginTop="16dp" android:minHeight="52dp" android:text="@string/account_retry"
+          android:textAllCaps="false" android:background="@drawable/ui_primary_button" android:backgroundTint="@null"
+          android:textColor="@color/white" android:visibility="gone" />
+      <Button android:id="@+id/accountOther" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:layout_marginTop="8dp" android:minHeight="48dp" android:text="@string/account_other"
+          android:textAllCaps="false" android:background="@drawable/ui_secondary_button" android:backgroundTint="@null"
+          android:textColor="@color/accent_blue" android:visibility="gone" />
+    </LinearLayout>
+    <LinearLayout android:id="@+id/accountForm" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="20dp" android:background="@drawable/bg_glass_card">
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:orientation="horizontal" android:background="@drawable/ui_input" android:padding="4dp" android:layout_marginBottom="20dp">
+        <Button android:id="@+id/accountEmailMode" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="@string/account_email_mode" android:textSize="12sp" android:textAllCaps="false" android:minHeight="48dp"
+            android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" android:textColor="@color/accent_blue" />
+        <Button android:id="@+id/accountCodeMode" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="6dp" android:text="@string/account_code_mode" android:textSize="12sp" android:textAllCaps="false" android:minHeight="48dp"
+            android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" android:textColor="@color/text_secondary" />
+      </LinearLayout>
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/account_email"
+          android:labelFor="@id/accountEmail" android:textSize="12sp" android:textStyle="bold" android:textColor="@color/text_secondary" />
+      <EditText android:id="@+id/accountEmail" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:layout_marginTop="7dp" android:layout_marginBottom="16dp" android:padding="14dp" android:minHeight="52dp"
+          android:inputType="textEmailAddress" android:maxLines="1" android:singleLine="true" android:autofillHints="emailAddress"
+          android:hint="@string/account_email_hint" android:background="@drawable/ui_input" android:textSize="15sp"
+          android:textColor="@color/accent_navy" android:textColorHint="@color/text_tertiary" android:textDirection="ltr" />
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/account_phone"
+          android:labelFor="@id/accountPhone" android:textSize="12sp" android:textStyle="bold" android:textColor="@color/text_secondary" />
+      <EditText android:id="@+id/accountPhone" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:layout_marginTop="7dp" android:padding="14dp" android:minHeight="52dp" android:inputType="phone"
+          android:singleLine="true" android:autofillHints="phone" android:hint="@string/account_phone_hint"
+          android:background="@drawable/ui_input" android:textSize="15sp" android:textDirection="ltr"
+          android:textColor="@color/accent_navy" android:textColorHint="@color/text_tertiary" />
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+          android:text="@string/account_phone_note" android:textSize="11sp" android:lineSpacingExtra="2dp" android:textColor="@color/text_secondary" />
+      <LinearLayout android:id="@+id/accountCodeGroup" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:orientation="vertical" android:layout_marginTop="18dp" android:visibility="gone">
+        <TextView android:id="@+id/accountCodeLabel" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/account_received_code" android:labelFor="@id/accountCode" android:textSize="12sp"
+            android:textStyle="bold" android:textColor="@color/text_secondary" />
+        <EditText android:id="@+id/accountCode" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="7dp" android:minHeight="52dp" android:padding="14dp" android:singleLine="true"
+            android:inputType="number" android:importantForAutofill="no" android:saveEnabled="false"
+            android:background="@drawable/ui_input" android:textSize="16sp" android:textColor="@color/accent_navy"
+            android:textColorHint="@color/text_tertiary" android:textDirection="ltr" />
+      </LinearLayout>
+      <TextView android:id="@+id/accountMessage" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:layout_marginTop="14dp" android:textSize="12sp" android:lineSpacingExtra="3dp"
+          android:textColor="@color/text_secondary" android:visibility="gone" android:accessibilityLiveRegion="polite" />
+      <Button android:id="@+id/accountContinue" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:layout_marginTop="18dp" android:minHeight="54dp" android:text="@string/account_send_code"
+          android:textAllCaps="false" android:textStyle="bold" android:textSize="14sp" android:textColor="@color/white"
+          android:background="@drawable/ui_primary_button" android:backgroundTint="@null" />
+      <Button android:id="@+id/accountResend" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:layout_marginTop="8dp" android:minHeight="48dp" android:text="@string/account_resend"
+          android:textAllCaps="false" android:textSize="12sp" android:textColor="@color/accent_blue"
+          android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" android:visibility="gone" />
+    </LinearLayout>
+    <Button android:id="@+id/accountWhatsApp" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="16dp" android:minHeight="52dp" android:text="@string/account_whatsapp"
+        android:textAllCaps="false" android:textStyle="bold" android:textSize="13sp" android:textColor="@color/accent_blue"
+        android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp" android:text="@string/account_privacy" android:textSize="11sp"
+        android:gravity="center" android:lineSpacingExtra="2dp" android:textColor="@color/text_secondary" />
+  </LinearLayout>
+</ScrollView>

@@ -1,7 +1,7 @@
 {
-  "versionCode": 17,
-  "versionName": "v5.9.1",
+  "versionCode": 18,
+  "versionName": "v6.0.0",
   "apkUrl": "https://yidreamkosher.github.io/YiDream/admin/yidream.apk",
   "apkSha256": "",
-  "changelog": "Nouveau design inspiré du site YiDream : boutique, boutons Installer, accueil, sites et réglages. Toutes les fonctions existantes sont conservées."
+  "changelog": "Sign in with an email code or an administrator activation code. Email and contact phone are required. WhatsApp assistance is available before sign-in. The installed filter stays active while signed out."
 }
