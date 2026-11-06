@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/accountScreen" android:layout_width="match_parent" android:layout_height="match_parent"
     android:fillViewport="true" android:background="@drawable/bg_app_gradient" android:scrollbars="none">
   <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -10,7 +10,7 @@
       <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
           android:layout_marginStart="10dp" android:text="@string/app_name" android:textSize="20sp"
           android:textStyle="bold" android:textColor="@color/accent_navy" />
-      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="בס״ד"
+      <TextView android:id="@+id/accountDecoration" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:layout_marginEnd="4dp" android:text="בס״ד"
           android:textColor="@color/text_secondary" android:textSize="13sp" android:importantForAccessibility="no" />
     </LinearLayout>
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -26,25 +26,25 @@
       <TextView android:id="@+id/accountCheckMessage" android:layout_width="match_parent" android:layout_height="wrap_content"
           android:layout_marginTop="16dp" android:text="@string/account_checking" android:textSize="14sp"
           android:textColor="@color/text_secondary" android:gravity="center" android:lineSpacingExtra="3dp" android:accessibilityLiveRegion="polite" />
-      <Button android:id="@+id/accountRetry" android:layout_width="match_parent" android:layout_height="wrap_content"
+      <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountRetry" android:layout_width="match_parent" android:layout_height="wrap_content"
           android:layout_marginTop="16dp" android:minHeight="52dp" android:text="@string/account_retry"
-          android:textAllCaps="false" android:background="@drawable/ui_primary_button" android:backgroundTint="@null"
+          android:textAllCaps="false" android:background="@drawable/ui_primary_button" android:backgroundTint="@null" app:backgroundTint="@null"
           android:textColor="@color/white" android:visibility="gone" />
-      <Button android:id="@+id/accountOther" android:layout_width="match_parent" android:layout_height="wrap_content"
+      <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountOther" android:layout_width="match_parent" android:layout_height="wrap_content"
           android:layout_marginTop="8dp" android:minHeight="48dp" android:text="@string/account_other"
-          android:textAllCaps="false" android:background="@drawable/ui_secondary_button" android:backgroundTint="@null"
+          android:textAllCaps="false" android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" app:backgroundTint="@null"
           android:textColor="@color/accent_blue" android:visibility="gone" />
     </LinearLayout>
     <LinearLayout android:id="@+id/accountForm" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="vertical" android:padding="20dp" android:background="@drawable/bg_glass_card">
       <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
           android:orientation="horizontal" android:background="@drawable/ui_input" android:padding="4dp" android:layout_marginBottom="20dp">
-        <Button android:id="@+id/accountEmailMode" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountEmailMode" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
             android:text="@string/account_email_mode" android:textSize="12sp" android:textAllCaps="false" android:minHeight="48dp"
-            android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" android:textColor="@color/accent_blue" />
-        <Button android:id="@+id/accountCodeMode" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" app:backgroundTint="@null" android:textColor="@color/accent_blue" />
+        <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountCodeMode" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
             android:layout_marginStart="6dp" android:text="@string/account_code_mode" android:textSize="12sp" android:textAllCaps="false" android:minHeight="48dp"
-            android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" android:textColor="@color/text_secondary" />
+            android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" app:backgroundTint="@null" android:textColor="@color/text_secondary" />
       </LinearLayout>
       <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/account_email"
           android:labelFor="@id/accountEmail" android:textSize="12sp" android:textStyle="bold" android:textColor="@color/text_secondary" />
@@ -76,19 +76,19 @@
       <TextView android:id="@+id/accountMessage" android:layout_width="match_parent" android:layout_height="wrap_content"
           android:layout_marginTop="14dp" android:textSize="12sp" android:lineSpacingExtra="3dp"
           android:textColor="@color/text_secondary" android:visibility="gone" android:accessibilityLiveRegion="polite" />
-      <Button android:id="@+id/accountContinue" android:layout_width="match_parent" android:layout_height="wrap_content"
+      <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountContinue" android:layout_width="match_parent" android:layout_height="wrap_content"
           android:layout_marginTop="18dp" android:minHeight="54dp" android:text="@string/account_send_code"
           android:textAllCaps="false" android:textStyle="bold" android:textSize="14sp" android:textColor="@color/white"
-          android:background="@drawable/ui_primary_button" android:backgroundTint="@null" />
-      <Button android:id="@+id/accountResend" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:background="@drawable/ui_primary_button" android:backgroundTint="@null" app:backgroundTint="@null" />
+      <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountResend" android:layout_width="match_parent" android:layout_height="wrap_content"
           android:layout_marginTop="8dp" android:minHeight="48dp" android:text="@string/account_resend"
           android:textAllCaps="false" android:textSize="12sp" android:textColor="@color/accent_blue"
-          android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" android:visibility="gone" />
+          android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" app:backgroundTint="@null" android:visibility="gone" />
     </LinearLayout>
-    <Button android:id="@+id/accountWhatsApp" android:layout_width="match_parent" android:layout_height="wrap_content"
+    <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountWhatsApp" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginTop="16dp" android:minHeight="52dp" android:text="@string/account_whatsapp"
         android:textAllCaps="false" android:textStyle="bold" android:textSize="13sp" android:textColor="@color/accent_blue"
-        android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" />
+        android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" app:backgroundTint="@null" />
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"
         android:layout_marginBottom="12dp" android:text="@string/account_privacy" android:textSize="11sp"
         android:gravity="center" android:lineSpacingExtra="2dp" android:textColor="@color/text_secondary" />

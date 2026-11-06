@@ -3,6 +3,8 @@ package com.yidream.mdm
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import androidx.appcompat.widget.AppCompatButton
+import androidx.core.graphics.ColorUtils
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -71,6 +73,19 @@ class AccountGateTest {
         assertNotNull(activity.findViewById<View>(R.id.accountScreen))
         assertTrue(activity.findViewById<Button>(R.id.accountWhatsApp).hasOnClickListeners())
         assertFalse(activity.findViewById<Button>(R.id.accountContinue).text.isBlank())
+        val selected = activity.findViewById<AppCompatButton>(R.id.accountEmailMode)
+        val help = activity.findViewById<AppCompatButton>(R.id.accountWhatsApp)
+        assertNull("Theme tint must not override the selected segment drawable", selected.supportBackgroundTintList)
+        assertNull("Theme tint must not turn WhatsApp blue behind blue text", help.supportBackgroundTintList)
+        assertNull(help.backgroundTintList)
+        assertEquals(activity.getColor(R.color.white), selected.currentTextColor)
+        assertEquals(activity.getColor(R.color.accent_blue), help.currentTextColor)
+        val selectedFill = backgroundColor(selected)
+        val helpFill = backgroundColor(help)
+        assertEquals(activity.getColor(R.color.accent_blue), selectedFill)
+        assertEquals(activity.getColor(R.color.white), helpFill)
+        assertTrue("Selected sign-in text must contrast against its actual drawable", ColorUtils.calculateContrast(selected.currentTextColor, selectedFill) >= 4.5)
+        assertTrue("WhatsApp text must contrast against its actual drawable", ColorUtils.calculateContrast(help.currentTextColor, helpFill) >= 4.5)
         capture("account-sign-in")
         activity.findViewById<Button>(R.id.accountWhatsApp).performClick()
         val intent = shadowOf(activity).nextStartedActivity
@@ -128,12 +143,15 @@ class AccountGateTest {
         activity.findViewById<Button>(R.id.accountCodeMode).performClick()
         activity.findViewById<EditText>(R.id.accountEmail).setText("customer@example.invalid")
         activity.findViewById<EditText>(R.id.accountPhone).setText("+33712345678")
+        capture("account-admin-code")
         activity.findViewById<EditText>(R.id.accountCode).setText("123456")
         activity.findViewById<Button>(R.id.accountContinue).performClick()
         assertEquals(0, fake.activations)
         assertNotNull(activity.findViewById<EditText>(R.id.accountCode).error)
         assertFalse(activity.findViewById<EditText>(R.id.accountCode).isSaveEnabled)
-        capture("account-admin-code")
+        val selected = activity.findViewById<AppCompatButton>(R.id.accountCodeMode)
+        assertNull(selected.supportBackgroundTintList)
+        assertEquals(activity.getColor(R.color.white), selected.currentTextColor)
     }
 
     @Test fun tamperedStoredSessionFailsClosedAndIsDiscarded() {
@@ -163,6 +181,16 @@ class AccountGateTest {
         val directory = File(System.getProperty("yidream.uiPreviewDir", "build/ui-previews")).apply { mkdirs() }
         File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
+    }
+
+    private fun backgroundColor(button: Button): Int {
+        val background = requireNotNull(button.background.constantState).newDrawable().mutate()
+        val bitmap = Bitmap.createBitmap(120, 52, Bitmap.Config.ARGB_8888)
+        background.setBounds(0, 0, 120, 52)
+        background.draw(Canvas(bitmap))
+        val color = bitmap.getPixel(60, 26)
+        bitmap.recycle()
+        return color
     }
 }
 

@@ -76,6 +76,12 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.homeOpenStore).setOnClickListener { selectTab("store") }
         findViewById<View>(R.id.homeOpenSettings).setOnClickListener { selectTab("settings") }
         findViewById<TextView>(R.id.accountIdentity).text = access.account.email + "\n" + access.account.phone
+        listOf(R.id.accountSettingsWhatsApp, R.id.accountLogout).forEach { id ->
+            findViewById<androidx.appcompat.widget.AppCompatButton>(id).apply {
+                backgroundTintList = null
+                supportBackgroundTintList = null
+            }
+        }
         findViewById<View>(R.id.accountSettingsWhatsApp).setOnClickListener { AccountGateController.openWhatsApp(this) }
         findViewById<View>(R.id.accountLogout).setOnClickListener {
             AlertDialog.Builder(this).setTitle(R.string.account_logout).setMessage(R.string.account_logout_note)

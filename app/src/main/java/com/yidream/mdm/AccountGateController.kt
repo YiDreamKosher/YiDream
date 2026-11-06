@@ -10,6 +10,7 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.AppCompatButton
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -29,6 +30,7 @@ internal class AccountGateController(private val activity: AppCompatActivity,
     fun showLogin(message: Int? = null) {
         task?.cancel()
         activity.setContentView(R.layout.activity_account)
+        clearThemeButtonTints()
         view<Button>(R.id.accountWhatsApp).setOnClickListener { openWhatsApp(activity) }
         view<Button>(R.id.accountEmailMode).setOnClickListener { setMode(false) }
         view<Button>(R.id.accountCodeMode).setOnClickListener { setMode(true) }
@@ -42,6 +44,7 @@ internal class AccountGateController(private val activity: AppCompatActivity,
     fun checkSession() {
         task?.cancel()
         activity.setContentView(R.layout.activity_account)
+        clearThemeButtonTints()
         view<View>(R.id.accountForm).visibility = View.GONE
         view<View>(R.id.accountChecking).visibility = View.VISIBLE
         view<Button>(R.id.accountWhatsApp).setOnClickListener { openWhatsApp(activity) }
@@ -70,8 +73,8 @@ internal class AccountGateController(private val activity: AppCompatActivity,
         email.isEnabled = true; phone.isEnabled = true
         view<Button>(R.id.accountEmailMode).isSelected = !administrator
         view<Button>(R.id.accountCodeMode).isSelected = administrator
-        view<Button>(R.id.accountEmailMode).setTextColor(activity.getColor(if (administrator) R.color.text_secondary else R.color.accent_blue))
-        view<Button>(R.id.accountCodeMode).setTextColor(activity.getColor(if (administrator) R.color.accent_blue else R.color.text_secondary))
+        modeButton(R.id.accountEmailMode, !administrator)
+        modeButton(R.id.accountCodeMode, administrator)
         view<View>(R.id.accountCodeGroup).visibility = if (administrator) View.VISIBLE else View.GONE
         view<TextView>(R.id.accountCodeLabel).setText(if (administrator) R.string.account_admin_code else R.string.account_received_code)
         code.inputType = if (administrator) InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS else InputType.TYPE_CLASS_NUMBER
@@ -138,6 +141,23 @@ internal class AccountGateController(private val activity: AppCompatActivity,
         }
     }
 
+    private fun clearThemeButtonTints() {
+        listOf(R.id.accountEmailMode, R.id.accountCodeMode, R.id.accountContinue, R.id.accountResend,
+            R.id.accountWhatsApp, R.id.accountRetry, R.id.accountOther).forEach { id ->
+            view<Button>(id).apply {
+                backgroundTintList = null
+                (this as? AppCompatButton)?.supportBackgroundTintList = null
+            }
+        }
+    }
+
+    private fun modeButton(id: Int, selected: Boolean) {
+        view<Button>(id).apply {
+            setBackgroundResource(if (selected) R.drawable.ui_primary_button else R.drawable.ui_secondary_button)
+            setTextColor(activity.getColor(if (selected) R.color.white else R.color.accent_blue))
+        }
+    }
+
     private fun errorMessage(error: Exception): String = activity.getString(when {
         error is AccountRequestException && error.status == 429 -> R.string.account_rate_limit
         error is AccountRequestException && error.status in listOf(400, 401, 403) -> R.string.account_code_refused
@@ -148,6 +168,7 @@ internal class AccountGateController(private val activity: AppCompatActivity,
     fun signOut() {
         task?.cancel()
         activity.setContentView(R.layout.activity_account)
+        clearThemeButtonTints()
         view<View>(R.id.accountForm).visibility = View.GONE
         view<View>(R.id.accountChecking).visibility = View.VISIBLE
         view<TextView>(R.id.accountCheckMessage).setText(R.string.account_working)
