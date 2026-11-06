@@ -27,5 +27,5 @@ a='{http://schemas.android.com/apk/res/android}'
 settings=next(e for e in root_layout.iter() if e.get(a+'id')=='@+id/pageSettings')
 assert any(e.get(a+'id')=='@+id/sectionAbout' for e in settings.iter())
 assert not any(e.get(a+'id') in ('@+id/tabAbout','@+id/pageAbout') for e in root_layout.iter())
-assert all(any(e.get(a+'id')=='@+id/'+id for e in settings.iter()) for id in ['versionLabel','contactLabel','rowRemoveFilter'])
-print('PASS: About, version, contact and filter removal are accessible inside Settings; four bottom tabs only.')
+assert all(any(e.get(a+'id')=='@+id/'+id for e in settings.iter()) for id in ['versionLabel','settingsContactContent','rowRemoveFilter'])
+print('PASS: About, version, contact and protected filter removal remain inside Settings; optional four-tab navigation.')

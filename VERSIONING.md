@@ -42,7 +42,7 @@ l'ajoute au site Web ADB et publie le site sur
 [YiDream Pages](https://yidreamkosher.github.io/YiDream/). Quand les secrets de
 signature sont présents, il crée aussi la GitHub Release correspondant à la version de l'APK.
 
-Pour les changements du site ou de la console Web, `Deploy YiDream website with existing APK` réutilise le fichier de production, après vérification de son empreinte et de son certificat. Il conserve son numéro de version et ses octets. Une modification de `version.json` seule ne compile plus Android : si la version correspondante n’est pas encore publiée, la publication du site est refusée. Les changements du code Android continuent à lancer le workflow de compilation.
+Pour les changements du site ou de la console Web, `Deploy YiDream website with existing APK` réutilise le fichier de production, après vérification de son empreinte et de son certificat. Il conserve son numéro de version et ses octets. Les changements du code Android, de `version.json` ou du workflow Android lancent la compilation signée de l’application. Ces fichiers ne déclenchent pas la publication indépendante du site.
 
 Le programme de mise à jour n'accepte que l'URL YiDream publiée et compare le
 SHA-256 du fichier, le paquet, la version annoncée et la compatibilité de
@@ -50,3 +50,11 @@ signature avant l'installation. Il attend le résultat Android et vérifie la
 version effectivement installée avant d'annoncer un succès. Android conserve
 la décision finale, notamment lors d'une rotation de clé avec preuve valide.
 
+
+## Customer-account release dependency (v6.0.0)
+
+Use Android `versionCode` **19** for `v6.0.0`: code **18** already belongs to `v5.10.0`. Both Gradle and `version.json` must match. The signed release workflow validates those values and creates its tag against the exact tested source commit. It preserves the production signing certificate.
+
+Deploy the matching YiDream Suite account migration and `app-auth` function before releasing this APK. The email sender must be configured in Supabase Secrets. The updated cloud endpoints require a valid customer account and device association; older installed APKs need this update. Never ship a server or administrator key in the app.
+
+The build job has read-only repository access. Only the release job can write GitHub releases, and only the Pages deployment job receives Pages/OIDC permissions. Mixed site and Android changes use the signed release pipeline so a separate site publication cannot replace the new application with an older binary.

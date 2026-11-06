@@ -1,0 +1,13 @@
+<resources>
+  <string name="settings_appearance_section">Appearance and navigation</string>
+  <string name="settings_navigation_description">Choose how to move between your spaces.</string>
+  <string name="settings_navigation_tabs">Bottom navigation bar</string>
+  <string name="settings_navigation_home">From the home screen</string>
+  <string name="settings_navigation_home_hint">Without the bar, a Home button and Android Back always take you to your shortcuts.</string>
+  <string name="settings_languages_section">Languages</string>
+  <string name="settings_information_section">Information and terms</string>
+  <string name="settings_filter_section">Filtering</string>
+  <string name="settings_filter_description">Removing the filter requires the unlock code provided by your administrator.</string>
+  <string name="settings_contact_section">Contact your administrator</string>
+  <string name="navigation_return_home">‹ Home</string>
+</resources>

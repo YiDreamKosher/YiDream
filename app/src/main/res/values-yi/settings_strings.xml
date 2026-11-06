@@ -1,0 +1,13 @@
+<resources>
+  <string name="settings_appearance_section">אויסזען און נאַוויגאַציע</string>
+  <string name="settings_navigation_description">קלייבט ווי צו גיין צווישן די עקראַנען.</string>
+  <string name="settings_navigation_tabs">נאַוויגאַציע־באַר אונטן</string>
+  <string name="settings_navigation_home">פֿון דעם היים־עקראַן</string>
+  <string name="settings_navigation_home_hint">אָן דעם באַר ברענגען דער היים־קנעפּל און Android צוריק אײַך צו די דורכוועגן.</string>
+  <string name="settings_languages_section">שפּראַכן</string>
+  <string name="settings_information_section">אינפֿאָרמאַציע און תּנאָים</string>
+  <string name="settings_filter_section">פֿילטער</string>
+  <string name="settings_filter_description">צו באַזײַטיקן דעם פֿילטער דאַרף מען דעם קאָד פֿונעם אַדמיניסטראַטאָר.</string>
+  <string name="settings_contact_section">קאָנטאַקט מיטן אַדמיניסטראַטאָר</string>
+  <string name="navigation_return_home">‹ היים</string>
+</resources>

@@ -76,11 +76,12 @@ class SiteReleaseTest(unittest.TestCase):
     def test_site_and_android_workflows_have_separate_triggers(self):
         android = (ROOT / '.github/workflows/deploy-webadb.yml').read_text().split('workflow_dispatch:')[0]
         web = (ROOT / '.github/workflows/deploy-site.yml').read_text()
-        for path in ("'site/client/**'", "'webadb/**'", "'version.json'", "'.github/workflows/deploy-webadb.yml'"):
+        for path in ("'site/client/**'", "'webadb/**'"):
             self.assertNotIn(path, android)
             self.assertIn(path, web)
-        for path in ("'app/**'", "'build.gradle'", "'settings.gradle'", "'gradle.properties'"):
+        for path in ("'app/**'", "'build.gradle'", "'settings.gradle'", "'gradle.properties'", "'version.json'", "'.github/workflows/deploy-webadb.yml'"):
             self.assertIn(path, android)
+            self.assertNotIn(path, web.split('workflow_dispatch:')[0])
         self.assertNotIn('assembleRelease', web)
         self.assertNotIn('action-gh-release', web)
         self.assertIn('group: "pages"', web)

@@ -8,6 +8,8 @@ on:
       - 'build.gradle'
       - 'settings.gradle'
       - 'gradle.properties'
+      - 'version.json'
+      - '.github/workflows/deploy-webadb.yml'
   workflow_dispatch: {}
 
 permissions:
@@ -203,6 +205,7 @@ jobs:
             Sign in with an email code or an administrator activation code before accessing the app.
             Email and contact phone are required. WhatsApp assistance is available from the sign-in screen.
             The installed filter stays active while signed out. Requires the matching account service update.
+            Preserves the organized settings, navigation choice, administrator contact and authorized catalog updates introduced in v5.10.0.
           files: release/yidream.apk
           fail_on_unmatched_files: true
         env:

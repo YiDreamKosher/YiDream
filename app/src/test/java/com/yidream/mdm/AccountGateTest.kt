@@ -136,6 +136,8 @@ class AccountGateTest {
         controller.resume()
         shadowOf(Looper.getMainLooper()).idle()
         assertNull(activity.findViewById<View>(R.id.pageHome))
+        activity.onBackPressedDispatcher.onBackPressed()
+        assertNull("A navigation callback must never reopen a cached workspace while locked", activity.findViewById<View>(R.id.pageHome))
     }
 
     @Test fun administratorCodeRequiresFullRandomCodeAndNeverClaimsSmsVerification() {

@@ -7,10 +7,8 @@ on:
       - 'site/client/**'
       - 'site/tools/**'
       - 'webadb/**'
-      - 'version.json'
       - 'tests/site_release_test.py'
       - '.github/workflows/deploy-site.yml'
-      - '.github/workflows/deploy-webadb.yml'
   workflow_dispatch: {}
 
 permissions:
@@ -39,9 +37,9 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "website_only=true" >> "$GITHUB_OUTPUT"
-          elif [ -z "$PREVIOUS_SHA" ] || [ "$PREVIOUS_SHA" = "0000000000000000000000000000000000000000" ]; then
+          elif [ -z "$PREVIOUS_SHA" ] || ! git rev-parse --verify "$PREVIOUS_SHA^{commit}" >/dev/null 2>&1; then
             echo "website_only=false" >> "$GITHUB_OUTPUT"
-          elif git diff --quiet "$PREVIOUS_SHA" "$GITHUB_SHA" -- app build.gradle settings.gradle gradle.properties; then
+          elif git diff --quiet "$PREVIOUS_SHA" "$GITHUB_SHA" -- app build.gradle settings.gradle gradle.properties version.json .github/workflows/deploy-webadb.yml; then
             echo "website_only=true" >> "$GITHUB_OUTPUT"
           else
             echo "website_only=false" >> "$GITHUB_OUTPUT"

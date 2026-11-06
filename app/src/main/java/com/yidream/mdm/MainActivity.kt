@@ -4,9 +4,11 @@ import android.app.AlertDialog
 import android.os.Bundle
 import android.view.View
 import android.widget.EditText
+import android.widget.RadioGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
@@ -21,11 +23,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var updateManager: UpdateManager
     private lateinit var unlockManager: UnlockManager
 
+    private lateinit var navigationPreferences: NavigationPreferences
     private lateinit var portal: MdmPortalController
     private lateinit var accountClient: AppAccountClient
     private lateinit var accountGate: AccountGateController
     private var mainVisible = false
     private var restoredTab: String? = null
+    private var navigationBackCallback: OnBackPressedCallback? = null
 
     private lateinit var pages: Map<String, View>
     private lateinit var tabs: Map<String, View>
@@ -65,7 +69,12 @@ class MainActivity : AppCompatActivity() {
 
         portal = MdmPortalController(this)
         findViewById<View>(R.id.rowPairDevice).setOnClickListener { portal.pair() }
+        setupNavigationPreferences()
         setupLanguagePicker()
+        AdminContactController(this, findViewById<LinearLayout>(R.id.settingsContactContent)).apply {
+            bind()
+            bindInformation(findViewById<LinearLayout>(R.id.informationContent))
+        }
         refreshStatus()
         setupVersionAndContact()
 
@@ -121,8 +130,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun selectTab(requestedKey: String) {
+        if (!mainVisible) return
         val key = MainNavigation.restore(requestedKey)
         selectedTab = key
+        applyNavigationStyle()
         if (key == "store") portal.refreshStore()
         if (key == "sites") portal.refreshSites()
         pages.forEach { (k, v) -> v.visibility = if (k == key) View.VISIBLE else View.GONE }
@@ -137,6 +148,36 @@ class MainActivity : AppCompatActivity() {
                 if (child is android.widget.ImageView) child.setColorFilter(color)
             }
         }
+    }
+
+    private fun setupNavigationPreferences() {
+        navigationPreferences = NavigationPreferences(this)
+        val options = findViewById<RadioGroup>(R.id.navigationOptions)
+        options.check(if (navigationPreferences.showBottomBar) R.id.navigationTabsOption else R.id.navigationHomeOption)
+        options.setOnCheckedChangeListener { _, checkedId ->
+            navigationPreferences.showBottomBar = checkedId == R.id.navigationTabsOption
+            applyNavigationStyle()
+        }
+        findViewById<View>(R.id.backToHome).setOnClickListener { selectTab("home") }
+        navigationBackCallback?.remove()
+        navigationBackCallback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (mainVisible && selectedTab != "home") {
+                    selectTab("home")
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                    isEnabled = true
+                }
+            }
+        }.also { onBackPressedDispatcher.addCallback(this, it) }
+    }
+
+    private fun applyNavigationStyle() {
+        val bottomBar = navigationPreferences.showBottomBar
+        findViewById<View>(R.id.navigationBar).visibility = if (bottomBar) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.compactNavigation).visibility =
+            if (!bottomBar && selectedTab != "home") View.VISIBLE else View.GONE
     }
 
     // ------------------------------------------------------------------
@@ -205,10 +246,16 @@ class MainActivity : AppCompatActivity() {
     private fun onUpdatesClicked() {
         Toast.makeText(this, getString(R.string.settings_checking), Toast.LENGTH_SHORT).show()
         lifecycleScope.launch {
-            val update = updateManager.checkForUpdate()
-            if (update == null) {
-                Toast.makeText(this@MainActivity, getString(R.string.settings_up_to_date), Toast.LENGTH_SHORT).show()
-                return@launch
+            val update = when (val result = updateManager.checkStatus()) {
+                is UpdateManager.CheckResult.Available -> result.update
+                UpdateManager.CheckResult.UpToDate -> {
+                    Toast.makeText(this@MainActivity, getString(R.string.settings_up_to_date), Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                UpdateManager.CheckResult.Unavailable -> {
+                    Toast.makeText(this@MainActivity, getString(R.string.update_check_unavailable), Toast.LENGTH_LONG).show()
+                    return@launch
+                }
             }
 
             AlertDialog.Builder(this@MainActivity)

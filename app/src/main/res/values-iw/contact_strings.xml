@@ -1,0 +1,14 @@
+<resources>
+    <string name="contact_intro">יש שאלה, בקשה או בעיה? אפשר לפנות למנהל.</string>
+    <string name="contact_whatsapp">צ׳אט ב־WhatsApp</string>
+    <string name="contact_email">שליחת דוא״ל</string>
+    <string name="contact_whatsapp_message">שלום, יש לי שאלה בנוגע ל־YiDream.</string>
+    <string name="contact_external_notice">WhatsApp ייפתח באפליקציה או בדפדפן חיצוני. אתם בוחרים את ההודעה ומאשרים את שליחתה.</string>
+    <string name="contact_usage_title">תנאי שימוש</string>
+    <string name="contact_usage_body">השימוש ב־YiDream\n\nYiDream מנהל את האפליקציות המורשות ואת הבקשות לאתרים במכשיר בהתאם להגדרות המנהל.\n\nהתקנות ועדכונים בחנות משתמשים בגרסאות שפורסמו או אושרו למכשיר. אישור בקשה לאתר אינו משנה אוטומטית את סינון הרשת.\n\nהסרת הסינון נשארת מוגנת בקוד ההסרה. פנו למנהל כדי לברר אילו כללים חלים על המכשיר.\n\nWhatsApp ואפליקציית הדוא״ל הם שירותים חיצוניים. YiDream אינו שולח אליהם אוטומטית הודעה או מזהה מכשיר.\n\nמידע זה מתאר את השימוש באפליקציה. לקבלת התנאים החוזיים ומדיניות הפרטיות של השירות, פנו למנהל.</string>
+    <string name="contact_close">סגירה</string>
+    <string name="contact_unavailable_title">לא ניתן לפתוח את השירות</string>
+    <string name="contact_unavailable_body">אפשר לפנות למנהל ב־WhatsApp במספר %1$s או בדוא״ל %2$s.</string>
+    <string name="contact_copy_number">העתקת מספר</string>
+    <string name="contact_number_copied">המספר הועתק</string>
+</resources>

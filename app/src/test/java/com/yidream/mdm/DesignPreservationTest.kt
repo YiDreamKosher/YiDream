@@ -86,6 +86,7 @@ class DesignPreservationTest {
         @Suppress("DEPRECATION")
         app.resources.updateConfiguration(configuration, app.resources.displayMetrics)
         app.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
+        app.getSharedPreferences("yidream_appearance", Context.MODE_PRIVATE).edit().clear().commit()
         controller = Robolectric.buildActivity(MainActivity::class.java).create().start().resume().visible()
         activity = controller.get()
         shadowOf(Looper.getMainLooper()).idle()
@@ -134,9 +135,11 @@ class DesignPreservationTest {
         (0 until languages.childCount).forEach { assertTrue(languages.getChildAt(it).hasOnClickListeners()) }
         listOf(R.id.rowUpdates, R.id.rowPairDevice, R.id.rowRemoveFilter).forEach(::assertAction)
         val about = activity.findViewById<ViewGroup>(R.id.sectionAbout)
-        listOf(R.id.versionLabel, R.id.contactLabel, R.id.rowRemoveFilter).forEach { id ->
-            assertNotNull("About action or detail remains inside Settings", about.findViewById<View>(id))
+        listOf(R.id.versionLabel, R.id.rowUpdates).forEach { id ->
+            assertNotNull("Version and updater remain in Information", about.findViewById<View>(id))
         }
+        assertNotNull(activity.findViewById<ViewGroup>(R.id.settingsContactContent).findViewById<View>(R.id.contactLabel))
+        assertNotNull(activity.findViewById<ViewGroup>(R.id.sectionFilter).findViewById<View>(R.id.rowRemoveFilter))
         assertTrue(activity.findViewById<TextView>(R.id.versionLabel).text.contains(BuildConfig.VERSION_NAME))
         capture("settings", 360, 800)
         val settings = activity.findViewById<ScrollView>(R.id.pageSettings)
@@ -150,7 +153,12 @@ class DesignPreservationTest {
         shadowOf(Looper.getMainLooper()).idle()
         layout(360, 800)
         assertEquals("Settings has reached the measured bottom without an animation", scrollBottom, settings.scrollY)
+        capture("settings-contact", 360, 800)
+        settings.scrollTo(0, activity.findViewById<View>(R.id.sectionFilter).top)
+        layout(360, 800)
         assertTrue(activity.findViewById<View>(R.id.rowRemoveFilter).getGlobalVisibleRect(Rect()))
+        capture("settings-filter", 360, 800)
+        settings.scrollTo(0, activity.findViewById<View>(R.id.sectionAbout).top)
         capture("settings-about", 360, 800)
 
         // Exercise the three real Home shortcuts, without invoking a remote action.

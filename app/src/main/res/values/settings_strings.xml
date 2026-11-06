@@ -1,0 +1,13 @@
+<resources>
+  <string name="settings_appearance_section">Apparence et navigation</string>
+  <string name="settings_navigation_description">Choisissez comment passer d’un espace à l’autre.</string>
+  <string name="settings_navigation_tabs">Barre de navigation en bas</string>
+  <string name="settings_navigation_home">Depuis l’écran d’accueil</string>
+  <string name="settings_navigation_home_hint">Sans la barre, un bouton Accueil et le retour Android vous ramènent toujours à vos raccourcis.</string>
+  <string name="settings_languages_section">Langues</string>
+  <string name="settings_information_section">Informations et conditions</string>
+  <string name="settings_filter_section">Filtrage</string>
+  <string name="settings_filter_description">Le retrait du filtre nécessite le code de déverrouillage fourni par votre administrateur.</string>
+  <string name="settings_contact_section">Contacter l’administrateur</string>
+  <string name="navigation_return_home">‹ Accueil</string>
+</resources>

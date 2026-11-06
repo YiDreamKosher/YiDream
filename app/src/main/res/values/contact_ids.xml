@@ -1,0 +1,4 @@
+<resources>
+    <item name="contactWhatsappButton" type="id" />
+    <item name="contactUsageButton" type="id" />
+</resources>

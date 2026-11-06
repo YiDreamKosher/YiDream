@@ -13,8 +13,12 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.util.Locale
@@ -24,6 +28,7 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
     private val container get() = activity.findViewById<LinearLayout>(R.id.storeContent)
     private var generation = 0
     private var installing = false
+    private var reload: (() -> Unit)? = null
     private val navy = Color.rgb(23, 36, 61)
     private val muted = Color.rgb(101, 115, 138)
     private val blue = Color.rgb(45, 104, 217)
@@ -150,6 +155,7 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
     private fun baseMissing(app: JSONObject) = app.optBoolean("is_base") && installedVersion(app.getString("package_name")) == null && ready(app)
 
     fun load(onPair: () -> Unit) {
+        reload = { load(onPair) }
         val request = ++generation
         container.removeAllViews()
         val intro = card(intro = true)
@@ -173,8 +179,14 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
                 if (updates.isNotEmpty()) action(intro, text(R.string.store_update_all) + " (" + updates.size + ")", owner && !installing) { b -> batch(updates, b) }
                 if (missing.isNotEmpty()) action(intro, text(R.string.store_install_base) + " (" + missing.size + ")", owner && !installing) { b -> batch(missing, b) }
                 if (apps.isEmpty()) label(intro, text(R.string.mdm_empty_catalog))
-                else if (updates.isEmpty()) label(intro, text(R.string.store_no_updates))
+                else if (updates.isEmpty()) label(intro, text(R.string.store_no_published_updates))
+                if (apps.any { GooglePlayUpdateSource.listing(it.optString("source_url"), it.optString("package_name")) != null }) {
+                    label(intro, text(R.string.store_play_updates_title), 16f, navy).typeface = Typeface.DEFAULT_BOLD
+                    label(intro, text(R.string.store_play_updates_description), 12f)
+                }
                 for (app in apps) renderAppCard(app, owner)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 if (request == generation) state.text = text(if (error.message == "SERVICE_NOT_READY") R.string.mdm_service_missing else R.string.mdm_network_error)
             }
@@ -201,9 +213,17 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
             installed == null -> action(box, text(R.string.mdm_install), owner && !installing) { b -> batch(listOf(app), b) }
             needsUpdate(app) -> action(box, text(R.string.store_update), owner && !installing) { b -> batch(listOf(app), b) }
             else -> {
-                label(box, text(R.string.settings_up_to_date), 12f, Color.rgb(29, 130, 88))
+                label(box, text(R.string.store_catalog_current), 12f, Color.rgb(29, 130, 88))
                 val intent = activity.packageManager.getLaunchIntentForPackage(pkg)
                 if (intent != null) action(box, text(R.string.store_open), secondary = true, icon = R.drawable.store_ic_open) { activity.startActivity(intent) }
+            }
+        }
+        GooglePlayUpdateSource.listing(app.optString("source_url"), pkg)?.let { listing ->
+            val play = GooglePlayUpdates(activity)
+            val availableOnDevice = play.available(listing)
+            label(box, text(if (availableOnDevice) R.string.store_play_version_check else R.string.store_play_unavailable), 12f)
+            action(box, text(R.string.store_check_play), availableOnDevice && !installing, secondary = true, icon = R.drawable.store_ic_refresh) {
+                if (!play.open(listing)) Toast.makeText(activity, text(R.string.store_play_unavailable), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -221,12 +241,17 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
                     val result = CatalogInstaller(activity).install(app)
                     if (result is SilentInstaller.Result.Success) succeeded++ else failed++
                 }
-                button.text = activity.getString(R.string.store_batch_result, succeeded, failed)
+                val summary = activity.getString(R.string.store_batch_result, succeeded, failed)
+                button.text = summary
+                Toast.makeText(activity, summary, Toast.LENGTH_LONG).show()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 button.text = text(R.string.mdm_install_failed)
             } finally {
                 installing = false
                 button.isEnabled = true
+                if (currentCoroutineContext().isActive && !activity.isDestroyed && !activity.isFinishing) reload?.invoke()
             }
         }
     }

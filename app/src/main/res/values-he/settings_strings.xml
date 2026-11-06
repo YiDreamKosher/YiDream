@@ -1,0 +1,13 @@
+<resources>
+  <string name="settings_appearance_section">מראה וניווט</string>
+  <string name="settings_navigation_description">בחרו כיצד לעבור בין המסכים.</string>
+  <string name="settings_navigation_tabs">סרגל ניווט בתחתית</string>
+  <string name="settings_navigation_home">ממסך הבית</string>
+  <string name="settings_navigation_home_hint">ללא הסרגל, כפתור הבית וכפתור החזרה של Android מחזירים תמיד לקיצורי הדרך.</string>
+  <string name="settings_languages_section">שפות</string>
+  <string name="settings_information_section">מידע ותנאי שימוש</string>
+  <string name="settings_filter_section">סינון</string>
+  <string name="settings_filter_description">להסרת הסינון דרוש קוד השחרור שסופק על ידי מנהל המערכת.</string>
+  <string name="settings_contact_section">יצירת קשר עם המנהל</string>
+  <string name="navigation_return_home">‹ בית</string>
+</resources>
