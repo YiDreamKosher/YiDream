@@ -27,16 +27,19 @@ class SettingsNavigationTest {
     private lateinit var activity: MainActivity
 
     @Before fun launch() {
+        AppAccountDependencies.factory = { FakeAppAccountClient(savedSession = true) }
         val application = RuntimeEnvironment.getApplication()
         listOf("yidream_appearance", "yidream_device_portal", "yidream_unlock").forEach {
             application.getSharedPreferences(it, Context.MODE_PRIVATE).edit().clear().commit()
         }
         controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        shadowOf(Looper.getMainLooper()).idle()
         activity = controller.get()
     }
 
     @After fun finish() {
         controller.pause().stop().destroy()
+        AppAccountDependencies.factory = { AppAccountService(it) }
         RuntimeEnvironment.getApplication().getSharedPreferences("yidream_appearance", Context.MODE_PRIVATE)
             .edit().clear().commit()
     }
@@ -53,6 +56,7 @@ class SettingsNavigationTest {
         val state = Bundle()
         controller.saveInstanceState(state).pause().stop().destroy()
         controller = Robolectric.buildActivity(MainActivity::class.java).create(state).start().resume().visible()
+        shadowOf(Looper.getMainLooper()).idle()
         activity = controller.get()
         assertEquals(View.GONE, activity.findViewById<View>(R.id.navigationBar).visibility)
         listOf(R.id.homeOpenStore to R.id.pageStore, R.id.homeOpenSites to R.id.pageSites,

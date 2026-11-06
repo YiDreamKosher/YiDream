@@ -50,3 +50,11 @@ signature avant l'installation. Il attend le résultat Android et vérifie la
 version effectivement installée avant d'annoncer un succès. Android conserve
 la décision finale, notamment lors d'une rotation de clé avec preuve valide.
 
+
+## Customer-account release dependency (v6.0.0)
+
+Use Android `versionCode` **19** for `v6.0.0`: code **18** already belongs to `v5.10.0`. Both Gradle and `version.json` must match. The signed release workflow validates those values and creates its tag against the exact tested source commit. It preserves the production signing certificate.
+
+Deploy the matching YiDream Suite account migration and `app-auth` function before releasing this APK. The email sender must be configured in Supabase Secrets. The updated cloud endpoints require a valid customer account and device association; older installed APKs need this update. Never ship a server or administrator key in the app.
+
+The build job has read-only repository access. Only the release job can write GitHub releases, and only the Pages deployment job receives Pages/OIDC permissions. Mixed site and Android changes use the signed release pipeline so a separate site publication cannot replace the new application with an older binary.

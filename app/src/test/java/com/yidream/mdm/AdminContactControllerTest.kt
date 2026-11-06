@@ -37,7 +37,9 @@ class AdminContactControllerTest {
 
     @Before
     fun createActivity() {
+        AppAccountDependencies.factory = { FakeAppAccountClient(savedSession = true) }
         lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        shadowOf(Looper.getMainLooper()).idle()
         activity = lifecycle.get()
         contact = activity.findViewById(R.id.settingsContactContent)
     }
@@ -45,6 +47,7 @@ class AdminContactControllerTest {
     @After
     fun destroyActivity() {
         lifecycle.pause().stop().destroy()
+        AppAccountDependencies.factory = { AppAccountService(it) }
     }
 
     @Test

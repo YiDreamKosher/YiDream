@@ -6,6 +6,16 @@ Plateforme de gestion d'appareils Android filtrés. Ce dépôt contient l'app An
 
 YiDream ouvre les onglets Accueil, Boutique, Sites et Réglages pour gérer les applications et les demandes de sites. Les informations de version et d’utilisation se trouvent dans Réglages. Le launcher musical est un projet distinct : [YZ MDM](https://github.com/YiDreamKosher/YZ-MDM). YiDream ne remplace pas l’écran d’accueil Android.
 
+## Required customer account (v6.0.0, Android version code 19)
+
+The app opens a sign-in screen before showing Home, Apps, Sites or Settings. Users provide an email address and an international contact phone number, then either verify an email sign-in code or redeem a single-use administrator activation code. Email sign-in verifies the email address; the phone number remains a contact detail and is not SMS-verified. An administrator-code account does not claim email ownership.
+
+WhatsApp assistance to **+33 7 66 79 03 52** is available before sign-in. Opening the conversation does not send a message. Account and device credentials are encrypted with Android Keystore. The app rechecks access when returning to the foreground; signed-out, expired or suspended accounts cannot open its interface. The installed Device Owner filtering remains active while signed out.
+
+Install the matching backend from [YiDream Suite](https://github.com/YiDreamKosher/YiDream-Suite) before publishing this APK: migration `20261106135728_app_customer_access.sql` and Edge Function `app-auth`, with the Gmail sender configured privately. Administrators create expiring device-bound codes in the existing association screen and can suspend or restore eligible customer accounts. Older APKs must be updated to use the new account-protected cloud APIs.
+
+The release keeps the v5.10.0 settings, navigation preferences, administrator contact and authorized app-update behavior described below. Android version code **19** is higher than the already published v5.10.0 code **18**, so existing installations can accept the signed update.
+
 ## Réglages et mises à jour Android (v5.10.0)
 
 Les réglages sont organisés en cinq sections : **Apparence et navigation**, **Langues**, **Informations et conditions**, **Filtrage** et **Contacter l’administrateur**. La navigation peut conserver la barre d’onglets ou utiliser les raccourcis de l’accueil ; ce choix reste enregistré. Le bouton « Retour à l’accueil » et le retour Android permettent de revenir à l’accueil dans le second mode. Le logo est réservé à l’accueil. Le retrait du filtre conserve son code administrateur.

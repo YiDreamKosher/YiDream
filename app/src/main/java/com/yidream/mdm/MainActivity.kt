@@ -25,18 +25,32 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var navigationPreferences: NavigationPreferences
     private lateinit var portal: MdmPortalController
+    private lateinit var accountClient: AppAccountClient
+    private lateinit var accountGate: AccountGateController
+    private var mainVisible = false
+    private var restoredTab: String? = null
+    private var navigationBackCallback: OnBackPressedCallback? = null
 
     private lateinit var pages: Map<String, View>
     private lateinit var tabs: Map<String, View>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
         deviceOwnerManager = DeviceOwnerManager(this)
         restoreFilterAppRole()
         updateManager = UpdateManager(this)
         unlockManager = UnlockManager(this)
+        restoredTab = savedInstanceState?.getString("selectedTab")
+        // Device Owner filtering and its configuration remain independent from account sign-in.
+        importWebAdbConfigIfPresent()
+        accountClient = AppAccountDependencies.factory(this)
+        accountGate = AccountGateController(this, accountClient) { access -> showWorkspace(access) }
+        accountGate.showLogin()
+    }
+
+    private fun showWorkspace(access: AppAccess) {
+        setContentView(R.layout.activity_main)
+        mainVisible = true
 
         pages = mapOf(
             "home" to findViewById(R.id.pageHome),
@@ -70,8 +84,23 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.homeOpenSites).setOnClickListener { selectTab("sites") }
         findViewById<View>(R.id.homeOpenStore).setOnClickListener { selectTab("store") }
         findViewById<View>(R.id.homeOpenSettings).setOnClickListener { selectTab("settings") }
-        selectTab(MainNavigation.restore(savedInstanceState?.getString("selectedTab")))
-        importWebAdbConfigIfPresent()
+        findViewById<TextView>(R.id.accountIdentity).text = access.account.email + "\n" + access.account.phone
+        listOf(R.id.accountSettingsWhatsApp, R.id.accountLogout).forEach { id ->
+            findViewById<androidx.appcompat.widget.AppCompatButton>(id).apply {
+                backgroundTintList = null
+                supportBackgroundTintList = null
+            }
+        }
+        findViewById<View>(R.id.accountSettingsWhatsApp).setOnClickListener { AccountGateController.openWhatsApp(this) }
+        findViewById<View>(R.id.accountLogout).setOnClickListener {
+            AlertDialog.Builder(this).setTitle(R.string.account_logout).setMessage(R.string.account_logout_note)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.account_logout) { _, _ ->
+                    mainVisible = false
+                    accountGate.signOut()
+                }.show()
+        }
+        selectTab(MainNavigation.restore(restoredTab))
     }
 
     /** Remove only the former music launcher policy; keep the configured filter and owner. */
@@ -101,6 +130,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun selectTab(requestedKey: String) {
+        if (!mainVisible) return
         val key = MainNavigation.restore(requestedKey)
         selectedTab = key
         applyNavigationStyle()
@@ -129,9 +159,10 @@ class MainActivity : AppCompatActivity() {
             applyNavigationStyle()
         }
         findViewById<View>(R.id.backToHome).setOnClickListener { selectTab("home") }
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        navigationBackCallback?.remove()
+        navigationBackCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (selectedTab != "home") {
+                if (mainVisible && selectedTab != "home") {
                     selectTab("home")
                 } else {
                     isEnabled = false
@@ -139,7 +170,7 @@ class MainActivity : AppCompatActivity() {
                     isEnabled = true
                 }
             }
-        })
+        }.also { onBackPressedDispatcher.addCallback(this, it) }
     }
 
     private fun applyNavigationStyle() {
@@ -197,6 +228,8 @@ class MainActivity : AppCompatActivity() {
     // ------------------------------------------------------------------
 
     private fun refreshStatus() {
+        // WebADB imports can apply policy before the account gate inflates any workspace views.
+        if (!mainVisible) return
         val statusBanner = findViewById<TextView>(R.id.statusBanner)
         val isOwner = deviceOwnerManager.isDeviceOwner()
         statusBanner.text = if (isOwner) getString(R.string.status_owner) else getString(R.string.status_not_owner)
@@ -264,7 +297,21 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        setupVersionAndContact()
+        if (::accountGate.isInitialized && accountClient.hasSession) {
+            mainVisible = false
+            accountGate.checkSession()
+        }
+    }
+
+    override fun onPause() {
+        if (::accountGate.isInitialized) accountGate.cancel()
+        if (mainVisible) {
+            restoredTab = selectedTab
+            mainVisible = false
+            // Mask the workspace before Android keeps a paused activity or task snapshot.
+            accountGate.showLogin()
+        }
+        super.onPause()
     }
 
     private fun onRemoveFilterClicked() {

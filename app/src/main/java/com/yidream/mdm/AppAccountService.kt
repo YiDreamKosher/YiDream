@@ -1,0 +1,273 @@
+package com.yidream.mdm
+
+import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.KeyStore
+import java.time.Instant
+import java.util.Locale
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
+
+/** Contact details are not credentials, and a supplied phone number is not SMS-verified. */
+internal object AccountInput {
+    fun email(value: String): String {
+        val normalized = value.trim().lowercase(Locale.ROOT)
+        require(normalized.length in 3..254 && normalized.matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) { "INVALID_EMAIL" }
+        return normalized
+    }
+
+    fun phone(value: String): String {
+        val normalized = value.trim().replace(Regex("[ ()\\-.]"), "")
+        require(normalized.matches(Regex("^\\+[1-9][0-9]{7,14}$"))) { "INVALID_PHONE" }
+        return normalized
+    }
+
+    fun emailCode(value: String): String = value.trim().also {
+        require(it.matches(Regex("^[0-9]{6,8}$"))) { "INVALID_EMAIL_CODE" }
+    }
+
+    fun administratorCode(value: String): String = value.trim().replace("-", "").replace(" ", "").uppercase(Locale.ROOT).also {
+        require(it.matches(Regex("^[A-F0-9]{32}$"))) { "INVALID_ADMIN_CODE" }
+    }
+}
+
+internal data class AppAccount(val id: String, val email: String, val phone: String, val emailVerified: Boolean)
+internal data class AppAccess(val account: AppAccount, val deviceId: String?) {
+    companion object {
+        fun fromJson(value: JSONObject): AppAccess {
+            val account = value.getJSONObject("account")
+            check(account.optBoolean("is_active", false)) { "APP_ACCESS_DENIED" }
+            return AppAccess(AppAccount(account.getString("id"), account.getString("email"),
+                account.getString("contact_phone"), account.optBoolean("email_verified", false)),
+                value.optString("device_id").takeIf { it.isNotBlank() && it != "null" })
+        }
+    }
+}
+
+internal interface AppAccountClient {
+    val hasSession: Boolean
+    suspend fun validateSession(): AppAccess
+    suspend fun requestEmailCode(email: String)
+    suspend fun verifyEmailCode(email: String, phone: String, code: String): AppAccess
+    suspend fun activateCode(email: String, phone: String, code: String): AppAccess
+    suspend fun logout()
+}
+
+/** Explicit dependency seam for isolated Android tests; production always uses the real client. */
+internal object AppAccountDependencies {
+    var factory: (Context) -> AppAccountClient = { AppAccountService(it) }
+}
+
+/** Only ciphertext and its random GCM IV are persisted; the AES key never leaves Android Keystore. */
+internal class AppSessionStore(context: Context) {
+    private val preferences = context.getSharedPreferences("yidream_account_session", Context.MODE_PRIVATE)
+    private fun key(): SecretKey {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        return (store.getKey(KEY_ALIAS, null) as? SecretKey) ?: KeyGenerator.getInstance(
+            KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
+            init(KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setRandomizedEncryptionRequired(true).build())
+            generateKey()
+        }
+    }
+
+    fun read(): JSONObject? {
+        val encrypted = preferences.getString("ciphertext", null) ?: return null
+        return try {
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128,
+                Base64.decode(preferences.getString("iv", ""), Base64.NO_WRAP)))
+            JSONObject(String(cipher.doFinal(Base64.decode(encrypted, Base64.NO_WRAP)), Charsets.UTF_8))
+        } catch (_: Exception) { clear(); null }
+    }
+
+    fun write(value: JSONObject) {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key())
+        val encrypted = cipher.doFinal(value.toString().toByteArray(Charsets.UTF_8))
+        check(preferences.edit().putString("ciphertext", Base64.encodeToString(encrypted, Base64.NO_WRAP))
+            .putString("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP)).commit()) { "SESSION_STORAGE_FAILED" }
+    }
+
+    fun clear() { preferences.edit().clear().commit() }
+    companion object { private const val KEY_ALIAS = "yidream.app.account.aes.v1" }
+}
+
+internal class AccountRequestException(val status: Int, val reason: String) : Exception(reason)
+
+internal class AppAccountService(private val context: Context) : AppAccountClient {
+    private val store = AppSessionStore(context)
+    override val hasSession: Boolean get() = store.read() != null
+
+    override suspend fun requestEmailCode(email: String) {
+        request("/functions/v1/app-auth", JSONObject().put("email", AccountInput.email(email)))
+    }
+
+    override suspend fun verifyEmailCode(email: String, phone: String, code: String): AppAccess {
+        val normalizedEmail = AccountInput.email(email)
+        val normalizedPhone = AccountInput.phone(phone)
+        val session = request("/auth/v1/verify", JSONObject().put("type", "email")
+            .put("email", normalizedEmail).put("token", AccountInput.emailCode(code)))
+        requireSession(session)
+        session.put("kind", "email").put("contact_phone", normalizedPhone).put("profile_ready", false)
+        sessionLock.withLock { store.write(session) }
+        val profile = request("/rest/v1/rpc/yd_complete_app_profile", JSONObject().put("contact_phone", normalizedPhone),
+            mapOf("Authorization" to "Bearer ${session.getString("access_token")}"))
+        val access = AppAccess.fromJson(profile)
+        sessionLock.withLock { store.write(session.put("profile_ready", true)) }
+        return access
+    }
+
+    override suspend fun activateCode(email: String, phone: String, code: String): AppAccess {
+        val result = request("/rest/v1/rpc/yd_activate_app_code", JSONObject()
+            .put("contact_email", AccountInput.email(email)).put("contact_phone", AccountInput.phone(phone))
+            .put("account_code", AccountInput.administratorCode(code)))
+        val access = AppAccess.fromJson(result)
+        check(result.getString("app_token").matches(Regex("^[a-fA-F0-9]{64}$"))) { "INVALID_SESSION" }
+        sessionLock.withLock {
+            store.write(JSONObject().put("kind", "code").put("app_token", result.getString("app_token"))
+                .put("expires_at", result.getString("expires_at"))
+                .put("device_id", result.getString("device_id")).put("device_token", result.getString("token")))
+        }
+        context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
+        return access
+    }
+
+    override suspend fun validateSession(): AppAccess {
+        val session = validSession()
+        return try {
+            if (session.optString("kind") == "email" && !session.optBoolean("profile_ready", false)) {
+                val profile = request("/rest/v1/rpc/yd_complete_app_profile",
+                    JSONObject().put("contact_phone", session.getString("contact_phone")), headers(session))
+                val access = AppAccess.fromJson(profile)
+                sessionLock.withLock {
+                    val latest = store.read() ?: error("SIGN_IN_REQUIRED")
+                    check(latest.optString("access_token") == session.optString("access_token")) { "SESSION_CHANGED" }
+                    store.write(latest.put("profile_ready", true))
+                }
+                return access
+            }
+            val result = request("/rest/v1/rpc/yd_app_access_status", JSONObject().put("app_token",
+                if (session.optString("kind") == "code") session.getString("app_token") else JSONObject.NULL), headers(session))
+            AppAccess.fromJson(result)
+        } catch (error: AccountRequestException) {
+            if (error.status == 401 || error.status == 403 || error.reason.contains("APP_ACCESS_DENIED")) clearLocal()
+            throw error
+        }
+    }
+
+    suspend fun requestHeaders(): Map<String, String> = headers(validSession())
+
+    private suspend fun validSession(): JSONObject = sessionLock.withLock {
+        var session = store.read() ?: error("SIGN_IN_REQUIRED")
+        if (session.optString("kind") == "code") {
+            val expires = runCatching { Instant.parse(session.getString("expires_at")).epochSecond }.getOrNull()
+            if (expires == null || expires <= Instant.now().epochSecond) {
+                clearLocal(); error("SESSION_EXPIRED")
+            }
+        } else if (session.optLong("expires_at", 0) <= Instant.now().epochSecond + 60) {
+            try {
+                val refreshed = request("/auth/v1/token?grant_type=refresh_token", JSONObject().put("refresh_token", session.getString("refresh_token")))
+                requireSession(refreshed)
+                refreshed.put("kind", "email").put("contact_phone", session.optString("contact_phone"))
+                    .put("profile_ready", session.optBoolean("profile_ready", false))
+                listOf("device_id", "device_token").forEach { if (session.has(it)) refreshed.put(it, session.getString(it)) }
+                store.write(refreshed); session = refreshed
+            } catch (error: AccountRequestException) {
+                if (error.status in listOf(400, 401, 403)) clearLocal()
+                throw error
+            }
+        }
+        session
+    }
+
+    override suspend fun logout() {
+        val session = store.read()
+        try {
+            if (session != null) {
+                if (session.optString("kind") == "code") request("/rest/v1/rpc/yd_logout_app_session",
+                    JSONObject().put("app_token", session.getString("app_token")), headers(session))
+                else request("/auth/v1/logout?scope=local", JSONObject(), headers(session))
+            }
+        } finally { withContext(NonCancellable) { sessionLock.withLock { clearLocal() } } }
+    }
+
+    private fun clearLocal() {
+        store.clear()
+        // A device credential is not a policy. Forgetting it never changes Device Owner or filtering.
+        context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
+    }
+
+    private fun headers(session: JSONObject): Map<String, String> = if (session.optString("kind") == "code")
+        mapOf("x-yidream-app-token" to session.getString("app_token"))
+        else mapOf("Authorization" to "Bearer ${session.getString("access_token")}")
+
+    private fun requireSession(value: JSONObject) {
+        check(value.optString("access_token").isNotBlank() && value.optString("refresh_token").isNotBlank()) { "INVALID_SESSION" }
+        if (!value.has("expires_at")) value.put("expires_at", Instant.now().epochSecond + value.getLong("expires_in"))
+    }
+
+    internal suspend fun saveDeviceCredential(value: JSONObject) = sessionLock.withLock {
+        val session = store.read() ?: error("SIGN_IN_REQUIRED")
+        session.put("device_id", value.getString("device_id")).put("device_token", value.getString("token"))
+        store.write(session)
+        // Remove credentials persisted by versions before mandatory account access.
+        context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
+    }
+
+    internal fun deviceCredential(): Pair<String, String>? = store.read()?.let { session ->
+        val id = session.optString("device_id"); val token = session.optString("device_token")
+        if (id.isNotBlank() && token.isNotBlank()) id to token else null
+    }
+
+    private suspend fun request(path: String, body: JSONObject, extraHeaders: Map<String, String> = emptyMap()): JSONObject = withContext(Dispatchers.IO) {
+        val connection = URL(SERVICE + path).openConnection() as HttpURLConnection
+        try {
+            connection.requestMethod = "POST"; connection.instanceFollowRedirects = false
+            connection.connectTimeout = 12000; connection.readTimeout = 20000; connection.doOutput = true
+            connection.setRequestProperty("apikey", PUBLIC_KEY)
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            extraHeaders.forEach { (name, value) -> connection.setRequestProperty(name, value) }
+            connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val response = stream?.bufferedReader()?.use { reader ->
+                val buffer = CharArray(32769)
+                var length = 0
+                while (length < buffer.size) {
+                    val count = reader.read(buffer, length, buffer.size - length)
+                    if (count == -1) break
+                    length += count
+                }
+                check(length <= 32768) { "RESPONSE_TOO_LARGE" }
+                String(buffer, 0, length)
+            }.orEmpty()
+            if (status !in 200..299) {
+                val error = runCatching { JSONObject(response) }.getOrNull()
+                throw AccountRequestException(status, error?.optString("message")?.ifBlank { null }
+                    ?: error?.optString("error_code")?.ifBlank { null } ?: "REQUEST_FAILED")
+            }
+            if (response.isBlank() || response == "null") JSONObject() else JSONObject(response)
+        } finally { connection.disconnect() }
+    }
+
+    companion object {
+        private val sessionLock = Mutex()
+        const val SERVICE = "https://jqrznghqwdjbizjehzrm.supabase.co"
+        const val PUBLIC_KEY = "sb_publishable_YG9zgjQ5Y56WiBtKdJMQvA_-UBAFv9B"
+        const val WHATSAPP_URL = "https://wa.me/33766790352"
+    }
+}

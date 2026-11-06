@@ -59,6 +59,8 @@ class DesignPreservationTest {
 
     @Before
     fun launchWithoutAnyRealDeviceCredential() {
+        // A test-only client opens the signed-in UI; production never bypasses its server gate.
+        AppAccountDependencies.factory = { FakeAppAccountClient(savedSession = true) }
         val app = RuntimeEnvironment.getApplication()
         val rtl = testName.methodName == "rtlScreenKeepsFourTabsAndTheNativeCatalogLayout"
         val qualifiers = when {
@@ -96,6 +98,7 @@ class DesignPreservationTest {
         try {
             if (::controller.isInitialized) controller.pause().stop().destroy()
         } finally {
+            AppAccountDependencies.factory = { AppAccountService(it) }
             if (::previousLocale.isInitialized) Locale.setDefault(previousLocale)
             if (::previousLocaleList.isInitialized) LocaleList.setDefault(previousLocaleList)
         }
