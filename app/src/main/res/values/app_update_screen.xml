@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="appUpdateState" type="id"/>
+    <item name="appUpdateNow" type="id"/>
+    <item name="appUpdateCheck" type="id"/>
+    <item name="appUpdateLater" type="id"/>
+    <item name="appUpdateProgress" type="id"/>
+    <item name="appUpdateChangelog" type="id"/>
+    <string name="app_update_checking">Checking for a YiDream update…</string>
+    <string name="app_update_installing">Downloading and installing… Please wait for Android’s confirmation.</string>
+    <string name="app_update_success">Android confirmed the YiDream update.</string>
+    <string name="app_update_failed">The update was not installed.</string>
+    <string name="app_update_available">YiDream %1$s is available.</string>
+    <string name="app_update_deferred">YiDream %1$s is available whenever you are ready.</string>
+    <string name="app_update_current">YiDream is up to date.</string>
+    <string name="app_update_unavailable">The update check is unavailable. Check your connection and try again.</string>
+    <string name="app_update_optional_note">Updates are optional. Installation starts only when you choose Update now. Your account and filter configuration are kept.</string>
+    <string name="app_update_now">Update now</string>
+    <string name="app_update_later">Later</string>
+    <string name="app_update_check_again">Check again</string>
+</resources>

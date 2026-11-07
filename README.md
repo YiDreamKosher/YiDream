@@ -14,7 +14,11 @@ WhatsApp assistance to **+33 7 66 79 03 52** is available before sign-in. Openin
 
 Install the matching backend from [YiDream Suite](https://github.com/YiDreamKosher/YiDream-Suite) before publishing this APK: migration `20261106135728_app_customer_access.sql` and Edge Function `app-auth`, with the Gmail sender configured privately. Administrators create expiring device-bound codes in the existing association screen and can suspend or restore eligible customer accounts. Older APKs must be updated to use the new account-protected cloud APIs.
 
-The release keeps the v5.10.0 settings, navigation preferences, administrator contact and authorized app-update behavior described below. Android version code **19** is higher than the already published v5.10.0 code **18**, so existing installations can accept the signed update.
+Settings now opens a list of six submenus: **Account**, **Appearance and navigation**, **Languages**, **YiDream updates**, **Filtering**, and **Contact and information**. Only the selected submenu is shown; Back returns to the list before leaving Settings. These screens remain behind account validation.
+
+The YiDream updates submenu checks the official release manifest and displays the available version and release notes. Installation requires an explicit **Update now** press; **Later** defers the notification. The optional background check only updates a badge, at most once every six hours. Downloads, package/version, checksum, certificate and Android's final installation result are verified by the existing updater. This updates the native app, separately from authorized catalog applications.
+
+The release keeps v5.10.0 navigation preferences, administrator contact and authorized catalog-update behavior described below. Android version code **19** is higher than the already published v5.10.0 code **18**, so existing installations can accept the signed update.
 
 ## Réglages et mises à jour Android (v5.10.0)
 

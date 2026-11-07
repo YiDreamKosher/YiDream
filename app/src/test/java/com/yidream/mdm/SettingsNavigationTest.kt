@@ -28,6 +28,7 @@ class SettingsNavigationTest {
 
     @Before fun launch() {
         AppAccountDependencies.factory = { FakeAppAccountClient(savedSession = true) }
+        AppUpdatesDependencies.factory = { OfflineAppUpdateFixture }
         val application = RuntimeEnvironment.getApplication()
         listOf("yidream_appearance", "yidream_device_portal", "yidream_unlock").forEach {
             application.getSharedPreferences(it, Context.MODE_PRIVATE).edit().clear().commit()
@@ -40,12 +41,14 @@ class SettingsNavigationTest {
     @After fun finish() {
         controller.pause().stop().destroy()
         AppAccountDependencies.factory = { AppAccountService(it) }
+        AppUpdatesDependencies.reset()
         RuntimeEnvironment.getApplication().getSharedPreferences("yidream_appearance", Context.MODE_PRIVATE)
             .edit().clear().commit()
     }
 
     @Test fun homeNavigationPreferenceSurvivesActivityRecreationAndNeverTrapsUser() {
         activity.findViewById<View>(R.id.homeOpenSettings).performClick()
+        activity.findViewById<View>(R.id.settingsOpenAppearance).performClick()
         activity.findViewById<RadioGroup>(R.id.navigationOptions).check(R.id.navigationHomeOption)
         assertEquals(View.GONE, activity.findViewById<View>(R.id.navigationBar).visibility)
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.compactNavigation).visibility)
@@ -67,6 +70,7 @@ class SettingsNavigationTest {
             assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.pageHome).visibility)
         }
         activity.findViewById<View>(R.id.homeOpenSettings).performClick()
+        activity.findViewById<View>(R.id.settingsOpenAppearance).performClick()
         activity.findViewById<RadioGroup>(R.id.navigationOptions).check(R.id.navigationTabsOption)
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.navigationBar).visibility)
         assertEquals(View.GONE, activity.findViewById<View>(R.id.compactNavigation).visibility)
@@ -89,6 +93,7 @@ class SettingsNavigationTest {
 
     @Test fun filterRemovalStillRequiresTheAdministratorUnlockCode() {
         activity.findViewById<View>(R.id.homeOpenSettings).performClick()
+        activity.findViewById<View>(R.id.settingsOpenFilter).performClick()
         activity.findViewById<View>(R.id.rowRemoveFilter).performClick()
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
         assertNotNull("Removal opens the existing unlock dialog", dialog)
@@ -100,5 +105,58 @@ class SettingsNavigationTest {
         shadowOf(Looper.getMainLooper()).idle()
         assertFalse(dialog.isShowing)
         assertFalse("Navigation does not enroll a device", MdmService(activity).paired)
+    }
+
+    @Test fun settingsOpenOneSubmenuAndBackReturnsToMenuBeforeHome() {
+        activity.findViewById<View>(R.id.homeOpenSettings).performClick()
+        val destinations = listOf(R.id.settingsOpenAccount to R.id.settingsPageAccount,
+            R.id.settingsOpenAppearance to R.id.settingsPageAppearance,
+            R.id.settingsOpenLanguage to R.id.settingsPageLanguage,
+            R.id.rowUpdates to R.id.settingsPageUpdates,
+            R.id.settingsOpenFilter to R.id.settingsPageFilter,
+            R.id.settingsOpenContact to R.id.settingsPageContact)
+        destinations.forEach { (row, page) ->
+            assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsMenu).visibility)
+            activity.findViewById<View>(row).performClick()
+            assertEquals(View.GONE, activity.findViewById<View>(R.id.settingsMenu).visibility)
+            destinations.forEach { (_, otherPage) -> assertEquals(if (otherPage == page) View.VISIBLE else View.GONE,
+                activity.findViewById<View>(otherPage).visibility) }
+            activity.onBackPressedDispatcher.onBackPressed()
+            assertEquals("Back first opens the settings landing list", View.VISIBLE, activity.findViewById<View>(R.id.settingsMenu).visibility)
+            assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.pageSettings).visibility)
+        }
+        activity.onBackPressedDispatcher.onBackPressed()
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.pageHome).visibility)
+    }
+
+    @Test fun restoredSubmenuWaitsForAccountValidationAndKeepsItsDestination() {
+        activity.findViewById<View>(R.id.homeOpenSettings).performClick()
+        activity.findViewById<View>(R.id.settingsOpenLanguage).performClick()
+        val state = Bundle()
+        controller.saveInstanceState(state).pause().stop().destroy()
+        controller = Robolectric.buildActivity(MainActivity::class.java).create(state).start().resume().visible()
+        shadowOf(Looper.getMainLooper()).idle()
+        activity = controller.get()
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.pageSettings).visibility)
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsPageLanguage).visibility)
+        activity.findViewById<View>(R.id.settingsBack).performClick()
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsMenu).visibility)
+    }
+
+    @Test fun restoredSettingsNeverAppearWhenAccountValidationFails() {
+        activity.findViewById<View>(R.id.homeOpenSettings).performClick()
+        activity.findViewById<View>(R.id.settingsOpenAccount).performClick()
+        val state = Bundle()
+        controller.saveInstanceState(state).pause().stop().destroy()
+        AppAccountDependencies.factory = { FakeAppAccountClient(savedSession = true).apply {
+            validationFailure = java.io.IOException("Test connection unavailable")
+        } }
+        controller = Robolectric.buildActivity(MainActivity::class.java).create(state).start().resume().visible()
+        shadowOf(Looper.getMainLooper()).idle()
+        activity = controller.get()
+        assertNotNull(activity.findViewById<View>(R.id.accountScreen))
+        assertNull(activity.findViewById<View>(R.id.pageSettings))
+        assertNull(activity.findViewById<View>(R.id.accountIdentity))
+        assertNull(activity.findViewById<View>(R.id.settingsBack))
     }
 }

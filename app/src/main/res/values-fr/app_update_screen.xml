@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_update_checking">Recherche d’une mise à jour YiDream…</string>
+    <string name="app_update_installing">Téléchargement et installation… Patientez jusqu’à la confirmation d’Android.</string>
+    <string name="app_update_success">Android a confirmé la mise à jour de YiDream.</string>
+    <string name="app_update_failed">La mise à jour n’a pas été installée.</string>
+    <string name="app_update_available">YiDream %1$s est disponible.</string>
+    <string name="app_update_deferred">YiDream %1$s sera disponible quand vous le souhaiterez.</string>
+    <string name="app_update_current">YiDream est à jour.</string>
+    <string name="app_update_unavailable">La vérification est indisponible. Vérifiez votre connexion et réessayez.</string>
+    <string name="app_update_optional_note">La mise à jour est facultative. L’installation démarre uniquement si vous choisissez Mettre à jour. Votre compte et la configuration du filtre sont conservés.</string>
+    <string name="app_update_now">Mettre à jour</string>
+    <string name="app_update_later">Plus tard</string>
+    <string name="app_update_check_again">Vérifier à nouveau</string>
+</resources>

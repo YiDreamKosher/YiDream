@@ -29,6 +29,7 @@ class CatalogPlayActionsTest {
 
     @Before fun launchWithoutDeviceCredentials() {
         AppAccountDependencies.factory = { FakeAppAccountClient(savedSession = true) }
+        AppUpdatesDependencies.factory = { OfflineAppUpdateFixture }
         RuntimeEnvironment.getApplication().getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE)
             .edit().clear().commit()
         controller = Robolectric.buildActivity(MainActivity::class.java).setup()
@@ -41,6 +42,7 @@ class CatalogPlayActionsTest {
     @After fun finish() {
         controller.pause().stop().destroy()
         AppAccountDependencies.factory = { AppAccountService(it) }
+        AppUpdatesDependencies.reset()
     }
 
     private fun draft(source: String) = JSONObject().put("name", "Future approved app")

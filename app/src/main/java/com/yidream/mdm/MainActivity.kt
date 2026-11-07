@@ -20,7 +20,8 @@ import java.io.File
 class MainActivity : AppCompatActivity() {
 
     private lateinit var deviceOwnerManager: DeviceOwnerManager
-    private lateinit var updateManager: UpdateManager
+    private lateinit var appUpdates: AppUpdatesController
+    private lateinit var settingsMenu: SettingsMenuController
     private lateinit var unlockManager: UnlockManager
 
     private lateinit var navigationPreferences: NavigationPreferences
@@ -29,6 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var accountGate: AccountGateController
     private var mainVisible = false
     private var restoredTab: String? = null
+    private var restoredSettingsPage: String? = null
     private var navigationBackCallback: OnBackPressedCallback? = null
 
     private lateinit var pages: Map<String, View>
@@ -38,9 +40,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         deviceOwnerManager = DeviceOwnerManager(this)
         restoreFilterAppRole()
-        updateManager = UpdateManager(this)
         unlockManager = UnlockManager(this)
         restoredTab = savedInstanceState?.getString("selectedTab")
+        restoredSettingsPage = savedInstanceState?.getString("settingsPage")
         // Device Owner filtering and its configuration remain independent from account sign-in.
         importWebAdbConfigIfPresent()
         accountClient = AppAccountDependencies.factory(this)
@@ -51,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     private fun showWorkspace(access: AppAccess) {
         setContentView(R.layout.activity_main)
         mainVisible = true
+        selectedTab = MainNavigation.restore(restoredTab)
 
         pages = mapOf(
             "home" to findViewById(R.id.pageHome),
@@ -78,7 +81,11 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
         setupVersionAndContact()
 
-        findViewById<View>(R.id.rowUpdates).setOnClickListener { onUpdatesClicked() }
+        appUpdates = AppUpdatesController(this)
+        settingsMenu = SettingsMenuController(this) {
+            appUpdates.mount(findViewById<LinearLayout>(R.id.appUpdatesContent))
+        }
+        settingsMenu.bind(restoredSettingsPage)
         findViewById<View>(R.id.rowRemoveFilter).setOnClickListener { onRemoveFilterClicked() }
 
         findViewById<View>(R.id.homeOpenSites).setOnClickListener { selectTab("sites") }
@@ -97,10 +104,15 @@ class MainActivity : AppCompatActivity() {
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.account_logout) { _, _ ->
                     mainVisible = false
+                    appUpdates.cancel()
                     accountGate.signOut()
                 }.show()
         }
         selectTab(MainNavigation.restore(restoredTab))
+        val currentSettings = settingsMenu
+        appUpdates.checkAvailability { available ->
+            if (mainVisible && settingsMenu === currentSettings) currentSettings.setUpdateAvailable(available)
+        }
     }
 
     /** Remove only the former music launcher policy; keep the configured filter and owner. */
@@ -126,12 +138,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("selectedTab", selectedTab)
+        outState.putString("settingsPage", if (mainVisible && ::settingsMenu.isInitialized) settingsMenu.selected else restoredSettingsPage)
         super.onSaveInstanceState(outState)
     }
 
     private fun selectTab(requestedKey: String) {
         if (!mainVisible) return
         val key = MainNavigation.restore(requestedKey)
+        if (key != selectedTab && ::settingsMenu.isInitialized) settingsMenu.open(null)
         selectedTab = key
         applyNavigationStyle()
         if (key == "store") portal.refreshStore()
@@ -162,7 +176,9 @@ class MainActivity : AppCompatActivity() {
         navigationBackCallback?.remove()
         navigationBackCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (mainVisible && selectedTab != "home") {
+                if (mainVisible && selectedTab == "settings" && ::settingsMenu.isInitialized && settingsMenu.back()) {
+                    return
+                } else if (mainVisible && selectedTab != "home") {
                     selectTab("home")
                 } else {
                     isEnabled = false
@@ -243,45 +259,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun onUpdatesClicked() {
-        Toast.makeText(this, getString(R.string.settings_checking), Toast.LENGTH_SHORT).show()
-        lifecycleScope.launch {
-            val update = when (val result = updateManager.checkStatus()) {
-                is UpdateManager.CheckResult.Available -> result.update
-                UpdateManager.CheckResult.UpToDate -> {
-                    Toast.makeText(this@MainActivity, getString(R.string.settings_up_to_date), Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-                UpdateManager.CheckResult.Unavailable -> {
-                    Toast.makeText(this@MainActivity, getString(R.string.update_check_unavailable), Toast.LENGTH_LONG).show()
-                    return@launch
-                }
-            }
-
-            AlertDialog.Builder(this@MainActivity)
-                .setTitle("Mise à jour ${update.versionName} disponible")
-                .setMessage(update.changelog.ifBlank { "Nouvelle version disponible." })
-                .setPositiveButton("Installer") { _, _ ->
-                    lifecycleScope.launch {
-                        Toast.makeText(this@MainActivity, "Installation…", Toast.LENGTH_SHORT).show()
-                        val result = updateManager.installUpdate(update)
-                        when (result) {
-                            is SilentInstaller.Result.Success -> {
-                                setupVersionAndContact()
-                                Toast.makeText(this@MainActivity, "Mise à jour confirmée par Android.", Toast.LENGTH_LONG).show()
-                            }
-                            is SilentInstaller.Result.Failure -> AlertDialog.Builder(this@MainActivity)
-                                .setTitle("Mise à jour non installée")
-                                .setMessage(result.message)
-                                .setPositiveButton("Fermer", null)
-                                .show()
-                        }
-                    }
-                }
-                .setNegativeButton("Plus tard", null)
-                .show()
-        }
-    }
 
     // ------------------------------------------------------------------
     // À propos — version, contact, suppression du filtre
@@ -305,8 +282,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         if (::accountGate.isInitialized) accountGate.cancel()
+        if (::appUpdates.isInitialized) appUpdates.cancel()
         if (mainVisible) {
             restoredTab = selectedTab
+            restoredSettingsPage = if (::settingsMenu.isInitialized) settingsMenu.selected else null
             mainVisible = false
             // Mask the workspace before Android keeps a paused activity or task snapshot.
             accountGate.showLogin()

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_update_checking">בודקים אם יש עדכון ל־YiDream…</string>
+    <string name="app_update_installing">מורידים ומתקינים… יש להמתין לאישור של Android.</string>
+    <string name="app_update_success">Android אישר את עדכון YiDream.</string>
+    <string name="app_update_failed">העדכון לא הותקן.</string>
+    <string name="app_update_available">YiDream %1$s זמין לעדכון.</string>
+    <string name="app_update_deferred">YiDream %1$s זמין כשתרצו לעדכן.</string>
+    <string name="app_update_current">YiDream מעודכן.</string>
+    <string name="app_update_unavailable">לא ניתן לבדוק עדכונים כרגע. בדקו את החיבור ונסו שוב.</string>
+    <string name="app_update_optional_note">העדכון הוא לבחירתכם. ההתקנה מתחילה רק לאחר בחירה בעדכון כעת. החשבון והגדרות הסינון נשמרים.</string>
+    <string name="app_update_now">עדכון כעת</string>
+    <string name="app_update_later">מאוחר יותר</string>
+    <string name="app_update_check_again">בדיקה נוספת</string>
+</resources>

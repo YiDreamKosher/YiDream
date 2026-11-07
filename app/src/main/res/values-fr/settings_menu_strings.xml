@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_menu_description">Choisissez le réglage à gérer.</string>
+    <string name="settings_menu_account_detail">Vos coordonnées et votre connexion</string>
+    <string name="settings_menu_appearance_detail">Choisir votre mode de navigation</string>
+    <string name="settings_menu_language_detail">Anglais, français, hébreu et yiddish</string>
+    <string name="settings_menu_updates">Mises à jour YiDream</string>
+    <string name="settings_menu_updates_detail">Vérifier et installer les mises à jour</string>
+    <string name="settings_menu_filter_detail">Votre protection et l’association du téléphone</string>
+    <string name="settings_menu_contact">Contact et informations</string>
+    <string name="settings_menu_contact_detail">WhatsApp, e-mail et conditions d’utilisation</string>
+    <string name="settings_menu_back">‹ Réglages</string>
+    <string name="settings_menu_update_available">Mise à jour disponible</string>
+</resources>

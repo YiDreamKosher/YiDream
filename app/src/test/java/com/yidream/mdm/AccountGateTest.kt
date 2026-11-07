@@ -55,12 +55,14 @@ class AccountGateTest {
 
     @Before fun setUp() {
         AppAccountDependencies.factory = { fake }
+        AppUpdatesDependencies.factory = { OfflineAppUpdateFixture }
         app.getSharedPreferences("yidream_account_session", Context.MODE_PRIVATE).edit().clear().commit()
         app.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
     }
     @After fun tearDown() {
         if (::controller.isInitialized) controller.pause().stop().destroy()
         AppAccountDependencies.factory = { AppAccountService(it) }
+        AppUpdatesDependencies.reset()
     }
     private fun launch() {
         controller = Robolectric.buildActivity(MainActivity::class.java).create().start().resume().visible()
