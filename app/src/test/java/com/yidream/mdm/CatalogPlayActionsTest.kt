@@ -28,15 +28,22 @@ class CatalogPlayActionsTest {
     private val pkg = "org.example.futureapp"
 
     @Before fun launchWithoutDeviceCredentials() {
+        AppAccountDependencies.factory = { FakeAppAccountClient(savedSession = true) }
+        AppUpdatesDependencies.factory = { OfflineAppUpdateFixture }
         RuntimeEnvironment.getApplication().getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE)
             .edit().clear().commit()
         controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
         activity = controller.get()
         content = activity.findViewById(R.id.storeContent)
         content.removeAllViews()
     }
 
-    @After fun finish() { controller.pause().stop().destroy() }
+    @After fun finish() {
+        controller.pause().stop().destroy()
+        AppAccountDependencies.factory = { AppAccountService(it) }
+        AppUpdatesDependencies.reset()
+    }
 
     private fun draft(source: String) = JSONObject().put("name", "Future approved app")
         .put("package_name", pkg).put("description", "A future catalog entry")

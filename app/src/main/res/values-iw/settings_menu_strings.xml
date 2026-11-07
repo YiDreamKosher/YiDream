@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_menu_description">בחרו הגדרה לניהול.</string>
+    <string name="settings_menu_account_detail">הפרטים שלכם והכניסה לחשבון</string>
+    <string name="settings_menu_appearance_detail">בחירת אופן הניווט</string>
+    <string name="settings_menu_language_detail">אנגלית, צרפתית, עברית ויידיש</string>
+    <string name="settings_menu_updates">עדכוני YiDream</string>
+    <string name="settings_menu_updates_detail">בדיקה והתקנה של עדכוני האפליקציה</string>
+    <string name="settings_menu_filter_detail">ההגנה ושיוך המכשיר</string>
+    <string name="settings_menu_contact">קשר ומידע</string>
+    <string name="settings_menu_contact_detail">WhatsApp, דוא״ל ותנאי שימוש</string>
+    <string name="settings_menu_back">הגדרות ›</string>
+    <string name="settings_menu_update_available">עדכון זמין</string>
+</resources>

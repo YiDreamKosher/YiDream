@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_menu_description">קלייבט וועלכע איינשטעלונג צו פירן.</string>
+    <string name="settings_menu_account_detail">אייערע פרטים און דער חשבון</string>
+    <string name="settings_menu_appearance_detail">קלייבן אייער נאוויגאציע</string>
+    <string name="settings_menu_language_detail">ענגליש, פראנצויזיש, העברעאיש און יידיש</string>
+    <string name="settings_menu_updates">YiDream דערהיינטיקונגען</string>
+    <string name="settings_menu_updates_detail">זוכן און אינסטאלירן דערהיינטיקונגען</string>
+    <string name="settings_menu_filter_detail">אייער שוץ און טעלעפאן פארבינדונג</string>
+    <string name="settings_menu_contact">קאנטאקט און אינפארמאציע</string>
+    <string name="settings_menu_contact_detail">WhatsApp, אימעיל און באניץ־תנאים</string>
+    <string name="settings_menu_back">איינשטעלונגען ›</string>
+    <string name="settings_menu_update_available">א דערהיינטיקונג איז פאראן</string>
+</resources>

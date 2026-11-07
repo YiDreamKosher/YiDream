@@ -12,13 +12,12 @@ import java.util.UUID
 
 /** Device credentials are scoped to one device; administrator sessions never enter the APK. */
 class MdmService(context: Context) {
-    private val preferences = context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE)
-    val paired: Boolean get() = preferences.contains("token")
+    private val account = AppAccountService(context)
+    val paired: Boolean get() = account.deviceCredential() != null
 
     suspend fun pair(code: String) {
         val result = rpc("yd_pair_device", JSONObject().put("pairing_code", code.trim())).getJSONObject(0)
-        preferences.edit().putString("device_id", result.getString("device_id"))
-            .putString("token", result.getString("token")).apply()
+        account.saveDeviceCredential(result)
     }
 
     suspend fun catalog(): JSONArray = rpc("yd_device_catalog", credentials())
@@ -29,21 +28,23 @@ class MdmService(context: Context) {
             .put("request_reason", reason.trim()).put("client_request_id", requestId))
     }
 
-    internal fun authorizeDownload(connection: HttpURLConnection, url: URL) {
+    internal suspend fun authorizeDownload(connection: HttpURLConnection, url: URL) {
         if (url.protocol == "https" && url.host == "jqrznghqwdjbizjehzrm.supabase.co" &&
             (url.port == -1 || url.port == 443) && url.path.startsWith("/storage/v1/object/authenticated/yd-apks/")) {
             check(paired) { "PAIR_REQUIRED" }
             connection.setRequestProperty("apikey", PUBLIC_KEY)
-            connection.setRequestProperty("x-yidream-device-token", preferences.getString("token", ""))
+            connection.setRequestProperty("x-yidream-device-token", account.deviceCredential()!!.second)
+            account.requestHeaders().forEach { (name, value) -> connection.setRequestProperty(name, value) }
         }
     }
 
     private fun credentials(): JSONObject {
         check(paired) { "PAIR_REQUIRED" }
-        return JSONObject().put("device_token", preferences.getString("token", ""))
+        return JSONObject().put("device_token", account.deviceCredential()!!.second)
     }
 
     private suspend fun rpc(name: String, input: JSONObject): JSONArray = withContext(Dispatchers.IO) {
+        val accountHeaders = account.requestHeaders()
         val connection = URL("$SERVICE/rest/v1/rpc/$name").openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"
@@ -53,6 +54,7 @@ class MdmService(context: Context) {
             connection.doOutput = true
             connection.setRequestProperty("apikey", PUBLIC_KEY)
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            accountHeaders.forEach { (name, value) -> connection.setRequestProperty(name, value) }
             connection.outputStream.use { it.write(input.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
             if (status !in 200..299) {

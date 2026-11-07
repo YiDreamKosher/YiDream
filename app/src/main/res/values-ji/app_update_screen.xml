@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_update_checking">מען זוכט אַ YiDream דערהייַנטיקונג…</string>
+    <string name="app_update_installing">מען לאָדט אַראָפּ און אינסטאַלירט… וואַרט אויף דער באַשטעטיקונג פֿון Android.</string>
+    <string name="app_update_success">Android האָט באַשטעטיקט די YiDream דערהייַנטיקונג.</string>
+    <string name="app_update_failed">די דערהייַנטיקונג איז נישט אינסטאַלירט געוואָרן.</string>
+    <string name="app_update_available">YiDream %1$s איז פֿאַראַן.</string>
+    <string name="app_update_deferred">YiDream %1$s איז פֿאַראַן ווען איר זענט גרייט.</string>
+    <string name="app_update_current">YiDream איז דערהייַנטיקט.</string>
+    <string name="app_update_unavailable">מען קען איצט נישט קאָנטראָלירן דערהייַנטיקונגען. קאָנטראָלירט דעם פֿאַרבינדונג און פּרוּווט ווידער.</string>
+    <string name="app_update_optional_note">די דערהייַנטיקונג איז אייער ברירה. די אינסטאַלאַציע הייבט זיך אָן נאָר ווען איר קלייבט אויס דערהייַנטיקן איצט. דער חשבון און די פילטער באַשטעטיקונגען בלייבן.</string>
+    <string name="app_update_now">דערהייַנטיקן איצט</string>
+    <string name="app_update_later">שפּעטער</string>
+    <string name="app_update_check_again">נאָכאַמאָל קאָנטראָלירן</string>
+</resources>

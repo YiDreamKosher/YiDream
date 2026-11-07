@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_title">חשבון YiDream שלכם</string>
+    <string name="account_subtitle">התחברו כדי לפתוח את האזור האישי. השתמשו בדוא״ל או בקוד ההפעלה שקיבלתם מהמנהל.</string>
+    <string name="account_email_mode">כניסה בדוא״ל</string>
+    <string name="account_code_mode">קוד מנהל</string>
+    <string name="account_email">כתובת דוא״ל</string>
+    <string name="account_email_hint">you@example.com</string>
+    <string name="account_phone">מספר טלפון</string>
+    <string name="account_phone_hint">+33 6 12 34 56 78</string>
+    <string name="account_phone_note">כולל קידומת מדינה. המספר משמש ליצירת קשר ואינו מאומת במסרון.</string>
+    <string name="account_received_code">הקוד שהתקבל בדוא״ל</string>
+    <string name="account_admin_code">קוד הפעלה מהמנהל</string>
+    <string name="account_send_code">שליחת קוד כניסה</string>
+    <string name="account_sign_in">כניסה</string>
+    <string name="account_activate">הפעלת החשבון</string>
+    <string name="account_resend">שליחת קוד נוסף</string>
+    <string name="account_code_sent">אם הבקשה מתקבלת, קוד כניסה יגיע בדוא״ל. בדקו גם את תיקיית דואר הזבל.</string>
+    <string name="account_admin_note">זהו קוד חד־פעמי מהמנהל, שתוקפו 15 דקות.</string>
+    <string name="account_whatsapp">עזרה ב־WhatsApp</string>
+    <string name="account_whatsapp_unavailable">לא נמצאה אפליקציה לפתיחת WhatsApp. צרו קשר במספר ‎+33 7 66 79 03 52.</string>
+    <string name="account_privacy">הדוא״ל ומספר הטלפון משמשים לניהול החשבון וזמינים למנהל שהוקצה לכם. WhatsApp נפתח רק לפי בחירתכם.</string>
+    <string name="account_checking">בודקים את החשבון…</string>
+    <string name="account_check_failed">לא ניתן לבדוק את הגישה. התחברו לאינטרנט ונסו שוב.</string>
+    <string name="account_retry">ניסיון נוסף</string>
+    <string name="account_other">שימוש בחשבון אחר</string>
+    <string name="account_working">נא להמתין…</string>
+    <string name="account_invalid_email">הזינו כתובת דוא״ל תקינה.</string>
+    <string name="account_invalid_phone">הוסיפו קידומת מדינה, לדוגמה ‎+972…</string>
+    <string name="account_invalid_email_code">הזינו את הקוד בן 6–8 הספרות שהתקבל בדוא״ל.</string>
+    <string name="account_invalid_admin_code">הזינו את כל 32 התווים של הקוד מהמנהל.</string>
+    <string name="account_code_refused">לא ניתן לקבל את הקוד. בדקו אותו או בקשו קוד חדש.</string>
+    <string name="account_network_error">לא ניתן להתחבר. בדקו את החיבור ונסו שוב.</string>
+    <string name="account_rate_limit">נשלחו בקשות רבות מדי. המתינו לפני ניסיון נוסף.</string>
+    <string name="account_session_expired">התחברו שוב. ייתכן שהגישה פגה או הושעתה.</string>
+    <string name="account_settings_title">החשבון שלי</string>
+    <string name="account_logout">יציאה מהחשבון</string>
+    <string name="account_logout_note">הסינון נשאר פעיל. כדי לחזור, התחברו בדוא״ל או בקשו קוד הפעלה חדש מהמנהל.</string>
+</resources>

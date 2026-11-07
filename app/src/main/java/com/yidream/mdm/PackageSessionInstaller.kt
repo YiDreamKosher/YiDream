@@ -7,12 +7,15 @@ import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 
 /** Used for both catalog apps and YiDream itself: a commit is not an install success. */
 internal class PackageSessionInstaller(private val context: Context) {
     suspend fun install(file: File, expectedPackage: String, expectedVersion: Long): SilentInstaller.Result {
+        currentCoroutineContext().ensureActive()
         val installer=context.packageManager.packageInstaller
         var sessionId=-1
         var submitted=false
@@ -30,17 +33,24 @@ internal class PackageSessionInstaller(private val context: Context) {
             })
             val params=PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
             params.setInstallReason(PackageManager.INSTALL_REASON_POLICY)
+            currentCoroutineContext().ensureActive()
             sessionId=installer.createSession(params)
             installer.openSession(sessionId).use { session ->
                 session.openWrite("yidream_verified_apk",0,file.length()).use { output ->
-                    file.inputStream().use { it.copyTo(output) };session.fsync(output)
+                    file.inputStream().use { copyApkBytes(it, output) }
+                    currentCoroutineContext().ensureActive()
+                    session.fsync(output)
                 }
                 val callback=Intent(context,CatalogInstallResultReceiver::class.java)
                     .putExtra(PackageInstaller.EXTRA_SESSION_ID,sessionId)
                 val pending=PendingIntent.getBroadcast(context,sessionId,callback,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
                 val completion=CompletableDeferred<SilentInstaller.Result>()
+                // Once submitted, Android owns the transaction and may finish even if this
+                // activity pauses. A cancelled download/copy must never reach that boundary.
+                currentCoroutineContext().ensureActive()
                 CatalogInstallSessions.pending[sessionId]=completion
+                currentCoroutineContext().ensureActive()
                 session.commit(pending.intentSender)
                 submitted=true
                 val result=withTimeoutOrNull(120_000L) { completion.await() }

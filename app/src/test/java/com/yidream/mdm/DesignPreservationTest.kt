@@ -59,6 +59,9 @@ class DesignPreservationTest {
 
     @Before
     fun launchWithoutAnyRealDeviceCredential() {
+        // A test-only client opens the signed-in UI; production never bypasses its server gate.
+        AppAccountDependencies.factory = { FakeAppAccountClient(savedSession = true) }
+        AppUpdatesDependencies.factory = { OfflineAppUpdateFixture }
         val app = RuntimeEnvironment.getApplication()
         val rtl = testName.methodName == "rtlScreenKeepsFourTabsAndTheNativeCatalogLayout"
         val qualifiers = when {
@@ -96,6 +99,8 @@ class DesignPreservationTest {
         try {
             if (::controller.isInitialized) controller.pause().stop().destroy()
         } finally {
+            AppAccountDependencies.factory = { AppAccountService(it) }
+        AppUpdatesDependencies.reset()
             if (::previousLocale.isInitialized) Locale.setDefault(previousLocale)
             if (::previousLocaleList.isInitialized) LocaleList.setDefault(previousLocaleList)
         }
@@ -127,35 +132,44 @@ class DesignPreservationTest {
         capture("sites-requests", 360, 800)
 
         select(R.id.tabSettings, R.id.pageSettings)
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsMenu).visibility)
+        capture("settings", 360, 800)
+        activity.findViewById<View>(R.id.settingsOpenAccount).performClick()
+        assertTrue(activity.findViewById<View>(R.id.accountLogout).isShown)
+        capture("settings-account", 360, 800)
+        activity.findViewById<View>(R.id.settingsBack).performClick()
+        activity.findViewById<View>(R.id.settingsOpenLanguage).performClick()
         val languages = activity.findViewById<LinearLayout>(R.id.languageRow)
         assertEquals("All four language choices remain available", 4, languages.childCount)
         (0 until languages.childCount).forEach { assertTrue(languages.getChildAt(it).hasOnClickListeners()) }
-        listOf(R.id.rowUpdates, R.id.rowPairDevice, R.id.rowRemoveFilter).forEach(::assertAction)
-        val about = activity.findViewById<ViewGroup>(R.id.sectionAbout)
-        listOf(R.id.versionLabel, R.id.rowUpdates).forEach { id ->
-            assertNotNull("Version and updater remain in Information", about.findViewById<View>(id))
-        }
-        assertNotNull(activity.findViewById<ViewGroup>(R.id.settingsContactContent).findViewById<View>(R.id.contactLabel))
-        assertNotNull(activity.findViewById<ViewGroup>(R.id.sectionFilter).findViewById<View>(R.id.rowRemoveFilter))
+        capture("settings-language", 360, 800)
+        activity.findViewById<View>(R.id.settingsBack).performClick()
+        activity.findViewById<View>(R.id.settingsOpenAppearance).performClick()
+        capture("settings-appearance", 360, 800)
+        activity.findViewById<View>(R.id.settingsBack).performClick()
+        activity.findViewById<View>(R.id.rowUpdates).performClick()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNotNull(activity.findViewById<ViewGroup>(R.id.sectionUpdates).findViewById<View>(R.id.versionLabel))
         assertTrue(activity.findViewById<TextView>(R.id.versionLabel).text.contains(BuildConfig.VERSION_NAME))
-        capture("settings", 360, 800)
+        capture("settings-updates", 360, 800)
+        activity.findViewById<View>(R.id.settingsBack).performClick()
+        activity.findViewById<View>(R.id.settingsOpenFilter).performClick()
+        listOf(R.id.rowPairDevice, R.id.rowRemoveFilter).forEach(::assertAction)
+        layout(360, 800)
+        assertTrue(activity.findViewById<View>(R.id.rowRemoveFilter).getGlobalVisibleRect(Rect()))
+        capture("settings-filter", 360, 800)
+        activity.findViewById<View>(R.id.settingsBack).performClick()
+        activity.findViewById<View>(R.id.settingsOpenContact).performClick()
+        assertNotNull(activity.findViewById<ViewGroup>(R.id.settingsContactContent).findViewById<View>(R.id.contactLabel))
+        assertNotNull(activity.findViewById<ViewGroup>(R.id.informationContent).findViewById<View>(R.id.contactUsageButton))
+        capture("settings-contact", 360, 800)
         val settings = activity.findViewById<ScrollView>(R.id.pageSettings)
-        // fullScroll can leave an animation pending under the paused test looper.
-        // Position the real ScrollView synchronously after its content is measured.
         settings.isSmoothScrollingEnabled = false
         layout(360, 800)
         val scrollBottom = (settings.getChildAt(0).measuredHeight -
             (settings.measuredHeight - settings.paddingTop - settings.paddingBottom)).coerceAtLeast(0)
         settings.scrollTo(0, scrollBottom)
         shadowOf(Looper.getMainLooper()).idle()
-        layout(360, 800)
-        assertEquals("Settings has reached the measured bottom without an animation", scrollBottom, settings.scrollY)
-        capture("settings-contact", 360, 800)
-        settings.scrollTo(0, activity.findViewById<View>(R.id.sectionFilter).top)
-        layout(360, 800)
-        assertTrue(activity.findViewById<View>(R.id.rowRemoveFilter).getGlobalVisibleRect(Rect()))
-        capture("settings-filter", 360, 800)
-        settings.scrollTo(0, activity.findViewById<View>(R.id.sectionAbout).top)
         capture("settings-about", 360, 800)
 
         // Exercise the three real Home shortcuts, without invoking a remote action.

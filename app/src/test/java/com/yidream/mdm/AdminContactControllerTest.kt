@@ -37,7 +37,10 @@ class AdminContactControllerTest {
 
     @Before
     fun createActivity() {
+        AppAccountDependencies.factory = { FakeAppAccountClient(savedSession = true) }
+        AppUpdatesDependencies.factory = { OfflineAppUpdateFixture }
         lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        shadowOf(Looper.getMainLooper()).idle()
         activity = lifecycle.get()
         contact = activity.findViewById(R.id.settingsContactContent)
     }
@@ -45,12 +48,16 @@ class AdminContactControllerTest {
     @After
     fun destroyActivity() {
         lifecycle.pause().stop().destroy()
+        AppAccountDependencies.factory = { AppAccountService(it) }
+        AppUpdatesDependencies.reset()
     }
 
     @Test
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun completeSettingsPreviewShowsAllFiveSectionsAndContactActions() {
+    fun contactSubmenuPreviewKeepsContactAndInformationActions() {
         activity.findViewById<View>(R.id.homeOpenSettings).performClick()
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsMenu).visibility)
+        activity.findViewById<View>(R.id.settingsOpenContact).performClick()
         val density = activity.resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
@@ -63,11 +70,10 @@ class AdminContactControllerTest {
             if (view is ViewGroup) (0 until view.childCount).forEach { addAll(descendants(view.getChildAt(it))) }
         }
         val labels = descendants(content).filterIsInstance<TextView>().map { it.text.toString() }
-        listOf(R.string.settings_appearance_section, R.string.settings_languages_section,
-            R.string.settings_information_section, R.string.settings_filter_section,
-            R.string.settings_contact_section).forEach { section ->
-            assertTrue("Each requested settings section remains visible in the complete content", labels.contains(activity.getString(section)))
-        }
+        assertTrue(labels.contains(activity.getString(R.string.settings_menu_contact)))
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.settingsPageAccount).visibility)
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.settingsPageFilter).visibility)
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsPageContact).visibility)
         listOf(R.id.contactWhatsappButton, R.id.contactLabel, R.id.contactUsageButton).forEach { id ->
             val button = activity.findViewById<Button>(id)
             assertTrue(button.hasOnClickListeners())
@@ -82,7 +88,7 @@ class AdminContactControllerTest {
         }
         content.draw(canvas)
         val output = File(System.getProperty("yidream.uiPreviewDir") ?: "build/ui-previews").apply { mkdirs() }
-        File(output, "settings-all-sections.png").outputStream().use {
+        File(output, "settings-contact.png").outputStream().use {
             assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
         }
         bitmap.recycle()

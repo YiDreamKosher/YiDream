@@ -1,7 +1,7 @@
 {
-  "versionCode": 18,
-  "versionName": "v5.10.0",
+  "versionCode": 19,
+  "versionName": "v6.0.0",
   "apkUrl": "https://yidreamkosher.github.io/YiDream/admin/yidream.apk",
   "apkSha256": "",
-  "changelog": "Réglages organisés en cinq sections, navigation au choix, logo réservé à l’accueil, contact WhatsApp et suivi des mises à jour des applications. Connexion aux mises à jour YiDream corrigée."
+  "changelog": "Sign in with an email code or an administrator activation code. Email and contact phone are required. WhatsApp assistance is available before sign-in. Settings now has dedicated submenus. Check and optionally install verified YiDream updates directly from the app. The installed filter stays active while signed out. Includes the navigation choice and authorized catalog updates from v5.10.0."
 }
