@@ -1,6 +1,8 @@
 package com.yidream.mdm
 
 import android.content.Context
+import android.content.ComponentName
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.appcompat.widget.AppCompatButton
@@ -28,18 +30,21 @@ import android.os.Looper
 
 internal class FakeAppAccountClient(var savedSession: Boolean = false) : AppAccountClient {
     var validationFailure: Exception? = null
-    var requestedEmail: String? = null
+    var activationFailure: Exception? = null
     var activations = 0
     override val hasSession get() = savedSession
-    val access = AppAccess(AppAccount("test-account", "customer@example.invalid", "+33712345678", true), null)
+    val access = AppAccess(AppAccount("test-account", "customer@example.invalid", "+33712345678", true), "90c0e024-62e3-48ec-8c4a-6d148d3745c1")
     override suspend fun validateSession(): AppAccess {
         validationFailure?.let { throw it }
         check(savedSession)
         return access
     }
-    override suspend fun requestEmailCode(email: String) { requestedEmail = email }
-    override suspend fun verifyEmailCode(email: String, phone: String, code: String): AppAccess { savedSession = true; return access }
-    override suspend fun activateCode(email: String, phone: String, code: String): AppAccess { activations++; savedSession = true; return access }
+    override suspend fun activateCode(code: String): AppAccess {
+        activations++
+        activationFailure?.let { throw it }
+        savedSession = true
+        return access
+    }
     override suspend fun logout() { savedSession = false }
 }
 
@@ -64,8 +69,8 @@ class AccountGateTest {
         AppAccountDependencies.factory = { AppAccountService(it) }
         AppUpdatesDependencies.reset()
     }
-    private fun launch() {
-        controller = Robolectric.buildActivity(MainActivity::class.java).create().start().resume().visible()
+    private fun launch(intent: Intent = Intent()) {
+        controller = Robolectric.buildActivity(MainActivity::class.java, intent).create().start().resume().visible()
         shadowOf(Looper.getMainLooper()).idle()
     }
 
@@ -75,9 +80,9 @@ class AccountGateTest {
         assertNotNull(activity.findViewById<View>(R.id.accountScreen))
         assertTrue(activity.findViewById<Button>(R.id.accountWhatsApp).hasOnClickListeners())
         assertFalse(activity.findViewById<Button>(R.id.accountContinue).text.isBlank())
-        val selected = activity.findViewById<AppCompatButton>(R.id.accountEmailMode)
+        val selected = activity.findViewById<AppCompatButton>(R.id.accountContinue)
         val help = activity.findViewById<AppCompatButton>(R.id.accountWhatsApp)
-        assertNull("Theme tint must not override the selected segment drawable", selected.supportBackgroundTintList)
+        assertNull("Theme tint must not override the activation button", selected.supportBackgroundTintList)
         assertNull("Theme tint must not turn WhatsApp blue behind blue text", help.supportBackgroundTintList)
         assertNull(help.backgroundTintList)
         assertEquals(activity.getColor(R.color.white), selected.currentTextColor)
@@ -86,7 +91,7 @@ class AccountGateTest {
         val helpFill = backgroundColor(help)
         assertEquals(activity.getColor(R.color.accent_blue), selectedFill)
         assertEquals(activity.getColor(R.color.white), helpFill)
-        assertTrue("Selected sign-in text must contrast against its actual drawable", ColorUtils.calculateContrast(selected.currentTextColor, selectedFill) >= 4.5)
+        assertTrue("Activation text must contrast against its actual drawable", ColorUtils.calculateContrast(selected.currentTextColor, selectedFill) >= 4.5)
         assertTrue("WhatsApp text must contrast against its actual drawable", ColorUtils.calculateContrast(help.currentTextColor, helpFill) >= 4.5)
         capture("account-sign-in")
         activity.findViewById<Button>(R.id.accountWhatsApp).performClick()
@@ -94,18 +99,55 @@ class AccountGateTest {
         assertEquals("https://wa.me/33766790352", intent.dataString)
     }
 
-    @Test fun requiresBothContactFieldsBeforeRequestingEmailCode() {
+    @Test fun approvedCodeOpensWorkspaceWithoutAnEmailStep() {
         launch()
-        activity.findViewById<EditText>(R.id.accountEmail).setText("customer@example.invalid")
-        activity.findViewById<Button>(R.id.accountContinue).performClick()
-        assertNull(fake.requestedEmail)
-        assertNotNull(activity.findViewById<EditText>(R.id.accountPhone).error)
-        activity.findViewById<EditText>(R.id.accountPhone).setText("+33 7 12 34 56 78")
+        activity.findViewById<EditText>(R.id.accountCode).setText("a".repeat(32))
         activity.findViewById<Button>(R.id.accountContinue).performClick()
         shadowOf(Looper.getMainLooper()).idle()
-        assertEquals("customer@example.invalid", fake.requestedEmail)
-        assertNull("Receiving a code is not authentication", activity.findViewById<View>(R.id.pageHome))
-        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.accountCodeGroup).visibility)
+        assertEquals(1, fake.activations)
+        assertNotNull(activity.findViewById<View>(R.id.pageHome))
+    }
+
+    @Test fun rejectedCodeLeavesWorkspaceLocked() {
+        fake.activationFailure = AccountRequestException(400, "INVALID_ACCOUNT_CODE")
+        launch()
+        activity.findViewById<EditText>(R.id.accountCode).setText("a".repeat(32))
+        activity.findViewById<Button>(R.id.accountContinue).performClick()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(1, fake.activations)
+        assertNull(activity.findViewById<View>(R.id.pageHome))
+        assertEquals(View.VISIBLE, activity.findViewById<TextView>(R.id.accountMessage).visibility)
+    }
+
+    @Test fun publicLauncherIntentCannotSupplyActivationCode() {
+        launch(Intent().putExtra(UsbActivationActivity.EXTRA, "A".repeat(32)))
+        assertEquals(0, fake.activations)
+        assertNull(activity.findViewById<View>(R.id.pageHome))
+        assertTrue(activity.findViewById<EditText>(R.id.accountCode).text.isEmpty())
+        val usbEntry = activity.packageManager.getActivityInfo(ComponentName(activity, UsbActivationActivity::class.java), 0)
+        assertEquals("android.permission.DUMP", usbEntry.permission)
+    }
+
+    @Test fun protectedUsbHandoffActivatesANewPhoneOnce() {
+        UsbActivation.offer("A".repeat(32))
+        launch()
+        assertEquals(1, fake.activations)
+        assertNotNull(activity.findViewById<View>(R.id.pageHome))
+        controller.pause().resume()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(1, fake.activations)
+    }
+
+    @Test fun usbHandoffDoesNotReplaceAnExistingSessionWithoutConfirmation() {
+        fake.savedSession = true
+        UsbActivation.offer("A".repeat(32))
+        launch()
+        assertEquals(0, fake.activations)
+        assertNull(activity.findViewById<View>(R.id.pageHome))
+        activity.findViewById<Button>(R.id.accountKeep).performClick()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(0, fake.activations)
+        assertNotNull(activity.findViewById<View>(R.id.pageHome))
     }
 
     @Test fun cachedSessionCannotExposeWorkspaceWhenValidationFails() {
@@ -142,20 +184,14 @@ class AccountGateTest {
         assertNull("A navigation callback must never reopen a cached workspace while locked", activity.findViewById<View>(R.id.pageHome))
     }
 
-    @Test fun administratorCodeRequiresFullRandomCodeAndNeverClaimsSmsVerification() {
+    @Test fun administratorCodeRejectsShortCodesAndIsNotSavedInViewState() {
         launch()
-        activity.findViewById<Button>(R.id.accountCodeMode).performClick()
-        activity.findViewById<EditText>(R.id.accountEmail).setText("customer@example.invalid")
-        activity.findViewById<EditText>(R.id.accountPhone).setText("+33712345678")
         capture("account-admin-code")
         activity.findViewById<EditText>(R.id.accountCode).setText("123456")
         activity.findViewById<Button>(R.id.accountContinue).performClick()
         assertEquals(0, fake.activations)
         assertNotNull(activity.findViewById<EditText>(R.id.accountCode).error)
         assertFalse(activity.findViewById<EditText>(R.id.accountCode).isSaveEnabled)
-        val selected = activity.findViewById<AppCompatButton>(R.id.accountCodeMode)
-        assertNull(selected.supportBackgroundTintList)
-        assertEquals(activity.getColor(R.color.white), selected.currentTextColor)
     }
 
     @Test fun tamperedStoredSessionFailsClosedAndIsDiscarded() {
@@ -166,11 +202,10 @@ class AccountGateTest {
     }
 
     @Test @Config(qualifiers = "he-ldrtl-w320dp-h640dp-xhdpi")
-    fun hebrewAccountScreenUsesRtlWhileContactInputsStayLtr() {
+    fun hebrewAccountScreenUsesRtlWhileActivationCodeStaysLtr() {
         launch()
         assertEquals(View.LAYOUT_DIRECTION_RTL, activity.findViewById<View>(R.id.accountScreen).layoutDirection)
-        assertEquals(View.TEXT_DIRECTION_LTR, activity.findViewById<View>(R.id.accountEmail).textDirection)
-        assertEquals(View.TEXT_DIRECTION_LTR, activity.findViewById<View>(R.id.accountPhone).textDirection)
+        assertEquals(View.TEXT_DIRECTION_LTR, activity.findViewById<View>(R.id.accountCode).textDirection)
         capture("account-sign-in-rtl")
     }
 
@@ -199,14 +234,13 @@ class AccountGateTest {
 }
 
 class AccountInputTest {
-    @Test fun normalizesContactWithoutClaimingItVerified() {
-        assertEquals("name@example.com", AccountInput.email(" Name@Example.COM "))
-        assertEquals("+33712345678", AccountInput.phone("+33 (7) 12-34-56-78"))
+    @Test fun normalizesGroupedActivationCode() {
         assertEquals("A".repeat(32), AccountInput.administratorCode("aaaa-aaaa-aaaa-aaaa-aaaa-aaaa-aaaa-aaaa"))
     }
-    @Test fun rejectsMissingOrUnsafeContactAndWeakCodes() {
-        listOf("", "invalid", "a@example.com\nBcc:x@y.com").forEach { assertThrows(IllegalArgumentException::class.java) { AccountInput.email(it) } }
-        listOf("0712345678", "+0012345678", "+1", "+33712345678ext4").forEach { assertThrows(IllegalArgumentException::class.java) { AccountInput.phone(it) } }
-        listOf("123456", "a".repeat(31), "g".repeat(32)).forEach { assertThrows(IllegalArgumentException::class.java) { AccountInput.administratorCode(it) } }
+
+    @Test fun rejectsWeakOrMalformedCodes() {
+        listOf("123456", "a".repeat(31), "g".repeat(32), "a".repeat(32) + "\nextra").forEach {
+            assertThrows(IllegalArgumentException::class.java) { AccountInput.administratorCode(it) }
+        }
     }
 }

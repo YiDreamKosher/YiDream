@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="managed_sites_title">Sites</string>
+    <string name="managed_sites_limits">Read approved HTTPS pages in YiDream. This reader displays text and links. Website scripts, forms and external resources are unavailable.</string>
+    <string name="managed_sites_open_approved">Open an approved site</string>
+    <string name="managed_sites_open">Open</string>
+    <string name="managed_sites_new_request">Request a site change</string>
+    <string name="managed_sites_allow_request">Request to allow</string>
+    <string name="managed_sites_block_request">Request to block</string>
+    <string name="managed_sites_block_option">Request blocking instead of access</string>
+    <string name="managed_sites_back">Back to sites</string>
+    <string name="managed_sites_loading_rules">Checking this device\'s rules…</string>
+    <string name="managed_sites_rules_unavailable">Couldn\'t check this device\'s rules. Check your connection.</string>
+    <string name="managed_sites_blocked">This address isn\'t allowed on this device.</string>
+    <string name="managed_sites_unsupported">This page needs a feature the YiDream reader can\'t open.</string>
+    <string name="managed_sites_unavailable">Couldn\'t open this page. Check the address and try again.</string>
+</resources>

@@ -3,7 +3,13 @@ package com.yidream.mdm
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.UserManager
+import android.provider.Telephony
+import android.telecom.TelecomManager
 
 class DeviceOwnerManager(private val context: Context) {
 
@@ -51,9 +57,35 @@ class DeviceOwnerManager(private val context: Context) {
     fun setAppBlocked(packageName: String, blocked: Boolean): Boolean {
         if (!isDeviceOwner()) return false
         return try {
-            dpm.setApplicationHidden(adminComponent, packageName, blocked)
-            true
+            if (dpm.isApplicationHidden(adminComponent, packageName) != blocked &&
+                !dpm.setApplicationHidden(adminComponent, packageName, blocked)) return false
+            dpm.isApplicationHidden(adminComponent, packageName) == blocked
         } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** The remote rules cover installed user apps and the existing known filter categories. */
+    internal fun applyRemoteAppRule(packageName: String, allowed: Boolean): Boolean {
+        if (!DevicePolicy.validPackageName(packageName) || packageName == context.packageName) return false
+        return try {
+            val packages = context.packageManager
+            @Suppress("DEPRECATION")
+            val app = packages.getApplicationInfo(packageName, PackageManager.MATCH_UNINSTALLED_PACKAGES)
+            if (app.flags and ApplicationInfo.FLAG_INSTALLED == 0) return false
+            val system = app.flags and ApplicationInfo.FLAG_SYSTEM != 0
+            if (system && packageName !in knownBrowsers && packageName !in knownAiApps &&
+                packageName !in knownSocial && packageName !in knownStores) return false
+            val telecom = context.getSystemService(TelecomManager::class.java)
+            if (packageName == telecom?.defaultDialerPackage ||
+                (Build.VERSION.SDK_INT >= 29 && packageName == telecom?.systemDialerPackage) ||
+                packageName == Telephony.Sms.getDefaultSmsPackage(context)) return false
+            val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            @Suppress("DEPRECATION")
+            val launchers = packages.queryIntentActivities(home, PackageManager.MATCH_DEFAULT_ONLY)
+            if (launchers.any { it.activityInfo.packageName == packageName }) return false
+            setAppBlocked(packageName, blocked = !allowed)
+        } catch (_: Exception) {
             false
         }
     }

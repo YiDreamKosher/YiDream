@@ -1,33 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="account_title">אייער YiDream חשבון</string>
-    <string name="account_subtitle">שרייבט זיך אריין צו עפענען אייער פערזענלעכן ארט. נוצט אייער אימעיל אדער דעם קאד פונעם אדמיניסטראטאר.</string>
-    <string name="account_email_mode">מיט אימעיל</string>
-    <string name="account_code_mode">אדמין קאד</string>
-    <string name="account_email">אימעיל אדרעס</string>
-    <string name="account_email_hint">you@example.com</string>
-    <string name="account_phone">טעלעפאן נומער</string>
-    <string name="account_phone_hint">+33 6 12 34 56 78</string>
-    <string name="account_phone_note">מיטן לאנד קאד. דער נומער איז פאר קאנטאקט; ער ווערט נישט באשטעטיקט מיט א SMS.</string>
-    <string name="account_received_code">דער קאד פונעם אימעיל</string>
+    <string name="account_title">אַקטיווירן YiDream</string>
+    <string name="account_subtitle">אייער אַדמיניסטראַטאָר גרייט צו דעם טעלעפֿאָן און באַשטעטיקט דעם חשבון. לייגט אַרײַן דעם קאָד וואָס איר האָט באַקומען.</string>
     <string name="account_admin_code">אקטיוואציע קאד פונעם אדמין</string>
-    <string name="account_send_code">שיקן א קאד</string>
-    <string name="account_sign_in">זיך אריינשרייבן</string>
     <string name="account_activate">אקטיוויזירן מיין חשבון</string>
-    <string name="account_resend">שיקן נאך א קאד</string>
-    <string name="account_code_sent">אויב די בקשה ווערט אנגענומען, קומט דער קאד מיט אימעיל. קוקט אויך אין ספאם.</string>
     <string name="account_admin_note">דער קאד איז פאר איין מאל און איז גילטיג פאר 15 מינוט.</string>
     <string name="account_whatsapp">הילף אויף WhatsApp</string>
     <string name="account_whatsapp_unavailable">קיין אפליקאציע קען נישט עפענען WhatsApp. רופט ‎+33 7 66 79 03 52.</string>
-    <string name="account_privacy">אייער אימעיל און טעלעפאן נומער ווערן גענוצט פארן חשבון און קענען געזען ווערן דורך אייער אדמין. WhatsApp עפנט זיך נאר ווען איר ווילט קאנטאקטירן הילף.</string>
+    <string name="account_privacy">דער אַדמיניסטראַטאָר גיט די קאָנטאַקט־פּרטים פֿאַר אייער חשבון. WhatsApp עפֿנט זיך ווען איר קלײַבט הילף.</string>
     <string name="account_checking">מען קאנטראלירט אייער חשבון…</string>
     <string name="account_check_failed">מען קען נישט קאנטראלירן דעם צוטריט. פארבינדט זיך צום אינטערנעט און פרובירט נאכאמאל.</string>
     <string name="account_retry">נאכאמאל פרובירן</string>
     <string name="account_other">נוצן אן אנדער חשבון</string>
     <string name="account_working">ביטע ווארט…</string>
-    <string name="account_invalid_email">שרייבט אריין א גילטיגע אימעיל אדרעס.</string>
-    <string name="account_invalid_phone">לייגט צו דעם לאנד קאד, למשל ‎+972…</string>
-    <string name="account_invalid_email_code">שרייבט אריין די 6–8 ציפערן פונעם אימעיל.</string>
     <string name="account_invalid_admin_code">שרייבט אריין אלע 32 אותיות פונעם אדמין קאד.</string>
     <string name="account_code_refused">דער קאד קען נישט אנגענומען ווערן. קאנטראלירט אים אדער בעט א נייעם.</string>
     <string name="account_network_error">מען קען נישט פארבינדן. קאנטראלירט אייער פארבינדונג און פרובירט נאכאמאל.</string>
@@ -35,5 +20,9 @@
     <string name="account_session_expired">שרייבט זיך ווידער אריין. אייער צוטריט קען זיין אויסגעלאפן אדער אפגעשטעלט.</string>
     <string name="account_settings_title">מיין חשבון</string>
     <string name="account_logout">זיך ארויסשרייבן</string>
-    <string name="account_logout_note">דער פילטער בלייבט אקטיוו. שרייבט זיך ווידער אריין מיט אימעיל אדער בעט א נייעם אקטיוואציע קאד פונעם אדמין.</string>
+    <string name="account_logout_note">דער פֿילטער בלײַבט אַקטיוו. בעט דעם אַדמיניסטראַטאָר פֿאַר אַ נײַעם אַקטיוואַציע־קאָד כּדי צוריקצוקומען.</string>
+    <string name="account_keep">האַלטן מײַן איצטיקן חשבון</string>
+    <string name="account_replace_prompt">אַ קאָד איז געשיקט געוואָרן דורך USB. אַקטיווירן דעם קאָד וועט פֿאַרבײַטן דעם חשבון אויפֿן טעלעפֿאָן.</string>
+    <string name="account_service_pending">דער אַקטיוואַציע־דינסט איז איצט נישט פֿאַראַן. ווענדט זיך צום אַדמיניסטראַטאָר.</string>
+    <string name="account_device_id">מיטל־אידענטיפֿיקאַציע: %1$s</string>
 </resources>

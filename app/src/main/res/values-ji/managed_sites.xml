@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="managed_sites_title">וועבזײַטן</string>
+    <string name="managed_sites_limits">אין YiDream קען מען לייענען דערלויבטע HTTPS־בלעטער. דער לייענער ווײַזט טעקסט און לינקס. סקריפּטן, פֿאָרמען און דרויסנדיקע רעסורסן זײַנען נישט בנימצא.</string>
+    <string name="managed_sites_open_approved">עפֿענען אַ דערלויבטע וועבזײַט</string>
+    <string name="managed_sites_open">עפֿענען</string>
+    <string name="managed_sites_new_request">בעטן אַן ענדערונג פֿאַר אַ וועבזײַט</string>
+    <string name="managed_sites_allow_request">בעטן דערלויבעניש</string>
+    <string name="managed_sites_block_request">בעטן צו בלאָקירן</string>
+    <string name="managed_sites_block_option">בעטן צו בלאָקירן אַנשטאָט צו דערלויבן</string>
+    <string name="managed_sites_back">צוריק צו וועבזײַטן</string>
+    <string name="managed_sites_loading_rules">מע קאָנטראָלירט די כּללים פֿונעם אַפּאַראַט…</string>
+    <string name="managed_sites_rules_unavailable">מע קען נישט קאָנטראָלירן די כּללים. קאָנטראָלירט די פֿאַרבינדונג.</string>
+    <string name="managed_sites_blocked">דער אַדרעס איז נישט דערלויבט אויף דעם אַפּאַראַט.</string>
+    <string name="managed_sites_unsupported">דער בלאַט ניצט אַ פֿונקציע וואָס איז נישט בנימצא אין YiDream.</string>
+    <string name="managed_sites_unavailable">מע קען נישט עפֿענען דעם בלאַט. קאָנטראָלירט דעם אַדרעס און פּרוּווט ווידער.</string>
+</resources>

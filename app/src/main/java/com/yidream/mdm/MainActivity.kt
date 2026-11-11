@@ -91,7 +91,11 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.homeOpenSites).setOnClickListener { selectTab("sites") }
         findViewById<View>(R.id.homeOpenStore).setOnClickListener { selectTab("store") }
         findViewById<View>(R.id.homeOpenSettings).setOnClickListener { selectTab("settings") }
-        findViewById<TextView>(R.id.accountIdentity).text = access.account.email + "\n" + access.account.phone
+        findViewById<TextView>(R.id.accountIdentity).apply {
+            text = listOfNotNull(access.account.email, access.account.phone,
+                access.deviceId?.let { getString(R.string.account_device_id, it) }).joinToString("\n")
+            setTextIsSelectable(true)
+        }
         listOf(R.id.accountSettingsWhatsApp, R.id.accountLogout).forEach { id ->
             findViewById<androidx.appcompat.widget.AppCompatButton>(id).apply {
                 backgroundTintList = null
@@ -105,6 +109,7 @@ class MainActivity : AppCompatActivity() {
                 .setPositiveButton(R.string.account_logout) { _, _ ->
                     mainVisible = false
                     appUpdates.cancel()
+                    RemoteDevicePolicy.cancel(applicationContext)
                     accountGate.signOut()
                 }.show()
         }
@@ -113,6 +118,7 @@ class MainActivity : AppCompatActivity() {
         appUpdates.checkAvailability { available ->
             if (mainVisible && settingsMenu === currentSettings) currentSettings.setUpdateAvailable(available)
         }
+        RemoteDevicePolicy.start(applicationContext)
     }
 
     /** Remove only the former music launcher policy; keep the configured filter and owner. */
@@ -274,14 +280,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::accountGate.isInitialized && accountClient.hasSession) {
+        if (::accountGate.isInitialized) {
             mainVisible = false
-            accountGate.checkSession()
+            accountGate.resume(UsbActivation.take())
         }
     }
 
     override fun onPause() {
-        if (::accountGate.isInitialized) accountGate.cancel()
+        if (::accountGate.isInitialized) accountGate.pause()
+        RemoteDevicePolicy.pause()
         if (::appUpdates.isInitialized) appUpdates.cancel()
         if (mainVisible) {
             restoredTab = selectedTab
@@ -346,6 +353,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun removeFilterConfirmed() {
         try {
+            RemoteDevicePolicy.cancel(applicationContext)
             stopLockTask()
             deviceOwnerManager.leaveDedicatedMode()
             deviceOwnerManager.removeBaseRestrictions()
