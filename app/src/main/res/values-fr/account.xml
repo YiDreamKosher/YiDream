@@ -1,33 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="account_title">Votre compte YiDream</string>
-    <string name="account_subtitle">Connectez-vous pour ouvrir votre espace personnel. Utilisez votre e-mail ou le code fourni par votre administrateur.</string>
-    <string name="account_email_mode">Par e-mail</string>
-    <string name="account_code_mode">Code admin</string>
-    <string name="account_email">Adresse e-mail</string>
-    <string name="account_email_hint">you@example.com</string>
-    <string name="account_phone">Numéro de téléphone</string>
-    <string name="account_phone_hint">+33 6 12 34 56 78</string>
-    <string name="account_phone_note">Avec l’indicatif du pays. Ce numéro sert au contact ; il n’est pas vérifié par SMS.</string>
-    <string name="account_received_code">Code reçu par e-mail</string>
+    <string name="account_title">Activer YiDream</string>
+    <string name="account_subtitle">Ton administrateur prépare le téléphone et approuve son compte. Saisis le code d’activation qu’il te donne.</string>
     <string name="account_admin_code">Code d’activation administrateur</string>
-    <string name="account_send_code">Recevoir mon code</string>
-    <string name="account_sign_in">Se connecter</string>
     <string name="account_activate">Activer mon compte</string>
-    <string name="account_resend">Recevoir un autre code</string>
-    <string name="account_code_sent">Si la demande est acceptée, un code de connexion arrivera par e-mail. Vérifiez votre boîte de réception et les indésirables.</string>
     <string name="account_admin_note">Ce code à usage unique est fourni par votre administrateur et expire après 15 minutes.</string>
     <string name="account_whatsapp">Besoin d’aide sur WhatsApp</string>
     <string name="account_whatsapp_unavailable">Aucune application ne peut ouvrir WhatsApp. Contactez le +33 7 66 79 03 52.</string>
-    <string name="account_privacy">Votre e-mail et votre numéro servent à gérer votre compte et peuvent être consultés par votre administrateur. WhatsApp s’ouvre uniquement à votre demande.</string>
+    <string name="account_privacy">Ton administrateur renseigne les coordonnées du compte. WhatsApp s’ouvre quand tu choisis de contacter l’assistance.</string>
     <string name="account_checking">Vérification de votre compte…</string>
     <string name="account_check_failed">Impossible de vérifier votre accès. Connectez-vous à Internet, puis réessayez.</string>
     <string name="account_retry">Réessayer</string>
     <string name="account_other">Utiliser un autre compte</string>
     <string name="account_working">Un instant…</string>
-    <string name="account_invalid_email">Saisissez une adresse e-mail valide.</string>
-    <string name="account_invalid_phone">Ajoutez l’indicatif du pays, par exemple +33…</string>
-    <string name="account_invalid_email_code">Saisissez le code de 6 à 8 chiffres reçu par e-mail.</string>
     <string name="account_invalid_admin_code">Saisissez les 32 caractères du code fourni par votre administrateur.</string>
     <string name="account_code_refused">Ce code n’a pas pu être accepté. Vérifiez-le ou demandez un nouveau code.</string>
     <string name="account_network_error">Connexion impossible. Vérifiez votre connexion, puis réessayez.</string>
@@ -35,5 +20,9 @@
     <string name="account_session_expired">Reconnectez-vous. Votre accès a peut-être expiré ou été suspendu.</string>
     <string name="account_settings_title">Mon compte</string>
     <string name="account_logout">Se déconnecter</string>
-    <string name="account_logout_note">Votre filtre reste actif. Pour revenir, connectez-vous par e-mail ou demandez un nouveau code d’activation à votre administrateur.</string>
+    <string name="account_logout_note">Le filtre reste actif. Pour revenir, demande un nouveau code d’activation à ton administrateur.</string>
+    <string name="account_keep">Garder mon compte actuel</string>
+    <string name="account_replace_prompt">Un code a été transmis par USB. Active-le pour remplacer le compte sur ce téléphone.</string>
+    <string name="account_service_pending">Le service d’activation est momentanément indisponible. Contacte ton administrateur.</string>
+    <string name="account_device_id">Identifiant de l’appareil : %1$s</string>
 </resources>

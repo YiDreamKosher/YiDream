@@ -37,51 +37,27 @@
     </LinearLayout>
     <LinearLayout android:id="@+id/accountForm" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="vertical" android:padding="20dp" android:background="@drawable/bg_glass_card">
-      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-          android:orientation="horizontal" android:background="@drawable/ui_input" android:padding="4dp" android:layout_marginBottom="20dp">
-        <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountEmailMode" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:text="@string/account_email_mode" android:textSize="12sp" android:textAllCaps="false" android:minHeight="48dp"
-            android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" app:backgroundTint="@null" android:textColor="@color/accent_blue" />
-        <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountCodeMode" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:layout_marginStart="6dp" android:text="@string/account_code_mode" android:textSize="12sp" android:textAllCaps="false" android:minHeight="48dp"
-            android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" app:backgroundTint="@null" android:textColor="@color/text_secondary" />
-      </LinearLayout>
-      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/account_email"
-          android:labelFor="@id/accountEmail" android:textSize="12sp" android:textStyle="bold" android:textColor="@color/text_secondary" />
-      <EditText android:id="@+id/accountEmail" android:layout_width="match_parent" android:layout_height="wrap_content"
-          android:layout_marginTop="7dp" android:layout_marginBottom="16dp" android:padding="14dp" android:minHeight="52dp"
-          android:inputType="textEmailAddress" android:maxLines="1" android:singleLine="true" android:autofillHints="emailAddress"
-          android:hint="@string/account_email_hint" android:background="@drawable/ui_input" android:textSize="15sp"
-          android:textColor="@color/accent_navy" android:textColorHint="@color/text_tertiary" android:textDirection="ltr" />
-      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/account_phone"
-          android:labelFor="@id/accountPhone" android:textSize="12sp" android:textStyle="bold" android:textColor="@color/text_secondary" />
-      <EditText android:id="@+id/accountPhone" android:layout_width="match_parent" android:layout_height="wrap_content"
-          android:layout_marginTop="7dp" android:padding="14dp" android:minHeight="52dp" android:inputType="phone"
-          android:singleLine="true" android:autofillHints="phone" android:hint="@string/account_phone_hint"
-          android:background="@drawable/ui_input" android:textSize="15sp" android:textDirection="ltr"
-          android:textColor="@color/accent_navy" android:textColorHint="@color/text_tertiary" />
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:text="@string/account_admin_code" android:labelFor="@id/accountCode" android:textSize="12sp"
+          android:textStyle="bold" android:textColor="@color/text_secondary" />
+      <EditText android:id="@+id/accountCode" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:layout_marginTop="7dp" android:minHeight="52dp" android:padding="14dp" android:singleLine="true"
+          android:inputType="textPassword|textNoSuggestions" android:maxLength="64"
+          android:importantForAutofill="no" android:saveEnabled="false"
+          android:background="@drawable/ui_input" android:textSize="16sp" android:textColor="@color/accent_navy"
+          android:textColorHint="@color/text_tertiary" android:textDirection="ltr" />
       <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
-          android:text="@string/account_phone_note" android:textSize="11sp" android:lineSpacingExtra="2dp" android:textColor="@color/text_secondary" />
-      <LinearLayout android:id="@+id/accountCodeGroup" android:layout_width="match_parent" android:layout_height="wrap_content"
-          android:orientation="vertical" android:layout_marginTop="18dp" android:visibility="gone">
-        <TextView android:id="@+id/accountCodeLabel" android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="@string/account_received_code" android:labelFor="@id/accountCode" android:textSize="12sp"
-            android:textStyle="bold" android:textColor="@color/text_secondary" />
-        <EditText android:id="@+id/accountCode" android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="7dp" android:minHeight="52dp" android:padding="14dp" android:singleLine="true"
-            android:inputType="number" android:importantForAutofill="no" android:saveEnabled="false"
-            android:background="@drawable/ui_input" android:textSize="16sp" android:textColor="@color/accent_navy"
-            android:textColorHint="@color/text_tertiary" android:textDirection="ltr" />
-      </LinearLayout>
+          android:text="@string/account_admin_note" android:textSize="12sp" android:lineSpacingExtra="2dp"
+          android:textColor="@color/text_secondary" />
       <TextView android:id="@+id/accountMessage" android:layout_width="match_parent" android:layout_height="wrap_content"
           android:layout_marginTop="14dp" android:textSize="12sp" android:lineSpacingExtra="3dp"
           android:textColor="@color/text_secondary" android:visibility="gone" android:accessibilityLiveRegion="polite" />
       <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountContinue" android:layout_width="match_parent" android:layout_height="wrap_content"
-          android:layout_marginTop="18dp" android:minHeight="54dp" android:text="@string/account_send_code"
+          android:layout_marginTop="18dp" android:minHeight="54dp" android:text="@string/account_activate"
           android:textAllCaps="false" android:textStyle="bold" android:textSize="14sp" android:textColor="@color/white"
           android:background="@drawable/ui_primary_button" android:backgroundTint="@null" app:backgroundTint="@null" />
-      <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountResend" android:layout_width="match_parent" android:layout_height="wrap_content"
-          android:layout_marginTop="8dp" android:minHeight="48dp" android:text="@string/account_resend"
+      <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountKeep" android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:layout_marginTop="8dp" android:minHeight="48dp" android:text="@string/account_keep"
           android:textAllCaps="false" android:textSize="12sp" android:textColor="@color/accent_blue"
           android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" app:backgroundTint="@null" android:visibility="gone" />
     </LinearLayout>

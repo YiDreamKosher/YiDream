@@ -2,18 +2,20 @@ package com.yidream.mdm
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
-import java.util.UUID
 
 /** Device credentials are scoped to one device; administrator sessions never enter the APK. */
 class MdmService(context: Context) {
     private val account = AppAccountService(context)
     val paired: Boolean get() = account.deviceCredential() != null
+    internal fun deviceCredential(): Pair<String, String>? = account.deviceCredential()
 
     suspend fun pair(code: String) {
         val result = rpc("yd_pair_device", JSONObject().put("pairing_code", code.trim())).getJSONObject(0)
@@ -22,10 +24,24 @@ class MdmService(context: Context) {
 
     suspend fun catalog(): JSONArray = rpc("yd_device_catalog", credentials())
     suspend fun requests(): JSONArray = rpc("yd_device_requests", credentials())
-    suspend fun requestSite(address: String, reason: String, requestId: String) {
+    suspend fun requestSite(address: String, reason: String, requestId: String, allowed: Boolean = true) {
         val normalized = normalizeSite(address)
-        rpc("yd_request_site", credentials().put("site_url", normalized)
-            .put("request_reason", reason.trim()).put("client_request_id", requestId))
+        rpc("yd_request_site_change", credentials().put("site_url", normalized)
+            .put("request_reason", reason.trim()).put("client_request_id", requestId)
+            .put("requested_allowed", allowed))
+    }
+
+    internal suspend fun devicePolicy(device: Pair<String, String>): DevicePolicy =
+        DevicePolicy.parse(rpc("yd_get_device_policy", policyCredential(device)).getJSONObject(0))
+
+    internal suspend fun reportPolicy(device: Pair<String, String>, revision: Long, applied: Boolean) {
+        rpc("yd_report_device_policy", policyCredential(device)
+            .put("policy_revision", revision).put("applied", applied))
+    }
+
+    private fun policyCredential(device: Pair<String, String>): JSONObject {
+        check(device == deviceCredential()) { "SESSION_CHANGED" }
+        return JSONObject().put("device_token", device.second)
     }
 
     internal suspend fun authorizeDownload(connection: HttpURLConnection, url: URL) {
@@ -58,10 +74,30 @@ class MdmService(context: Context) {
             connection.outputStream.use { it.write(input.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
             if (status !in 200..299) {
-                connection.errorStream?.close()
-                error(if (status == 404) "SERVICE_NOT_READY" else "SERVICE_ERROR")
+                val errorResponse = connection.errorStream?.bufferedReader()?.use { reader ->
+                    val buffer = CharArray(512)
+                    val length = reader.read(buffer)
+                    if (length < 0) "" else String(buffer, 0, length)
+                }
+                val reason = runCatching { JSONObject(errorResponse.orEmpty()).optString("message") }.getOrNull()
+                error(when {
+                    status == 404 -> "SERVICE_NOT_READY"
+                    status == 401 || status == 403 || reason == "APP_ACCESS_DENIED" -> "APP_ACCESS_DENIED"
+                    else -> "SERVICE_ERROR"
+                })
             }
-            val text = connection.inputStream.bufferedReader().use { it.readText() }
+            val text = connection.inputStream.bufferedReader().use { reader ->
+                val buffer = CharArray(4096)
+                val output = StringBuilder()
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    val length = reader.read(buffer)
+                    if (length < 0) break
+                    check(output.length + length <= 256 * 1024) { "SERVICE_RESPONSE_TOO_LARGE" }
+                    output.append(buffer, 0, length)
+                }
+                output.toString()
+            }
             when {
                 text == "null" || text.isBlank() -> JSONArray()
                 text.startsWith("[") -> JSONArray(text)

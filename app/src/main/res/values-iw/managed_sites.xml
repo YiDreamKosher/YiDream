@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="managed_sites_title">אתרים</string>
+    <string name="managed_sites_limits">ניתן לקרוא ב־YiDream דפי HTTPS שאושרו. הקורא מציג טקסט וקישורים. סקריפטים, טפסים ומשאבים חיצוניים אינם זמינים.</string>
+    <string name="managed_sites_open_approved">פתיחת אתר שאושר</string>
+    <string name="managed_sites_open">פתיחה</string>
+    <string name="managed_sites_new_request">בקשת שינוי לאתר</string>
+    <string name="managed_sites_allow_request">בקשת אישור גישה</string>
+    <string name="managed_sites_block_request">בקשת חסימה</string>
+    <string name="managed_sites_block_option">בקשת חסימה במקום גישה</string>
+    <string name="managed_sites_back">חזרה לאתרים</string>
+    <string name="managed_sites_loading_rules">בודק את כללי המכשיר…</string>
+    <string name="managed_sites_rules_unavailable">לא ניתן לבדוק את הכללים. בדקו את החיבור.</string>
+    <string name="managed_sites_blocked">כתובת זו אינה מאושרת במכשיר הזה.</string>
+    <string name="managed_sites_unsupported">הדף משתמש בתכונה שאינה זמינה בקורא YiDream.</string>
+    <string name="managed_sites_unavailable">לא ניתן לפתוח את הדף. בדקו את הכתובת ונסו שוב.</string>
+</resources>

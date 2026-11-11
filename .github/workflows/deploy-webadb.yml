@@ -202,10 +202,10 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: YiDream ${{ needs.build.outputs.version_tag }}
           body: |
-            Sign in with an email code or an administrator activation code before accessing the app.
-            Email and contact phone are required. WhatsApp assistance is available from the sign-in screen.
-            The installed filter stays active while signed out. Requires the matching account service update.
-            Preserves the organized settings, navigation choice, administrator contact and authorized catalog updates introduced in v5.10.0.
+            Activate an approved phone with an administrator code entered in YiDream or sent by USB.
+            The device keeps its assigned ID and synchronizes individual app and YiDream site rules.
+            Request a site to be allowed or blocked from the Sites screen.
+            This release requires the matching YiDream Suite device policy migration.
           files: release/yidream.apk
           fail_on_unmatched_files: true
         env:

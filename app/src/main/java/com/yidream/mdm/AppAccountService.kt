@@ -20,24 +20,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Contact details are not credentials, and a supplied phone number is not SMS-verified. */
 internal object AccountInput {
-    fun email(value: String): String {
-        val normalized = value.trim().lowercase(Locale.ROOT)
-        require(normalized.length in 3..254 && normalized.matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))) { "INVALID_EMAIL" }
-        return normalized
-    }
-
-    fun phone(value: String): String {
-        val normalized = value.trim().replace(Regex("[ ()\\-.]"), "")
-        require(normalized.matches(Regex("^\\+[1-9][0-9]{7,14}$"))) { "INVALID_PHONE" }
-        return normalized
-    }
-
-    fun emailCode(value: String): String = value.trim().also {
-        require(it.matches(Regex("^[0-9]{6,8}$"))) { "INVALID_EMAIL_CODE" }
-    }
-
     fun administratorCode(value: String): String = value.trim().replace("-", "").replace(" ", "").uppercase(Locale.ROOT).also {
         require(it.matches(Regex("^[A-F0-9]{32}$"))) { "INVALID_ADMIN_CODE" }
     }
@@ -59,9 +42,7 @@ internal data class AppAccess(val account: AppAccount, val deviceId: String?) {
 internal interface AppAccountClient {
     val hasSession: Boolean
     suspend fun validateSession(): AppAccess
-    suspend fun requestEmailCode(email: String)
-    suspend fun verifyEmailCode(email: String, phone: String, code: String): AppAccess
-    suspend fun activateCode(email: String, phone: String, code: String): AppAccess
+    suspend fun activateCode(code: String): AppAccess
     suspend fun logout()
 }
 
@@ -112,59 +93,62 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
     private val store = AppSessionStore(context)
     override val hasSession: Boolean get() = store.read() != null
 
-    override suspend fun requestEmailCode(email: String) {
-        request("/functions/v1/app-auth", JSONObject().put("email", AccountInput.email(email)))
-    }
-
-    override suspend fun verifyEmailCode(email: String, phone: String, code: String): AppAccess {
-        val normalizedEmail = AccountInput.email(email)
-        val normalizedPhone = AccountInput.phone(phone)
-        val session = request("/auth/v1/verify", JSONObject().put("type", "email")
-            .put("email", normalizedEmail).put("token", AccountInput.emailCode(code)))
-        requireSession(session)
-        session.put("kind", "email").put("contact_phone", normalizedPhone).put("profile_ready", false)
-        sessionLock.withLock { store.write(session) }
-        val profile = request("/rest/v1/rpc/yd_complete_app_profile", JSONObject().put("contact_phone", normalizedPhone),
-            mapOf("Authorization" to "Bearer ${session.getString("access_token")}"))
-        val access = AppAccess.fromJson(profile)
-        sessionLock.withLock { store.write(session.put("profile_ready", true)) }
-        return access
-    }
-
-    override suspend fun activateCode(email: String, phone: String, code: String): AppAccess {
-        val result = request("/rest/v1/rpc/yd_activate_app_code", JSONObject()
-            .put("contact_email", AccountInput.email(email)).put("contact_phone", AccountInput.phone(phone))
-            .put("account_code", AccountInput.administratorCode(code)))
-        val access = AppAccess.fromJson(result)
-        check(result.getString("app_token").matches(Regex("^[a-fA-F0-9]{64}$"))) { "INVALID_SESSION" }
-        sessionLock.withLock {
-            store.write(JSONObject().put("kind", "code").put("app_token", result.getString("app_token"))
-                .put("expires_at", result.getString("expires_at"))
-                .put("device_id", result.getString("device_id")).put("device_token", result.getString("token")))
+    override suspend fun activateCode(code: String): AppAccess {
+        val normalized = AccountInput.administratorCode(code)
+        // Once submitted, keep the credentials even if Android pauses the activity.
+        // The server may already have consumed the one-time code.
+        return withContext(NonCancellable) {
+            sessionLock.withLock {
+                val result = request("/rest/v1/rpc/yd_redeem_app_activation",
+                    JSONObject().put("account_code", normalized))
+                val access = AppAccess.fromJson(result)
+                val appToken = result.getString("app_token")
+                val deviceToken = result.getString("token")
+                val expiresAt = result.getString("expires_at")
+                check(access.deviceId != null && appToken.matches(TOKEN_FORMAT) &&
+                    deviceToken.matches(TOKEN_FORMAT) && Instant.parse(expiresAt).isAfter(Instant.now())) {
+                    "INVALID_SESSION"
+                }
+                store.write(JSONObject().put("kind", "code").put("app_token", appToken)
+                    .put("expires_at", expiresAt).put("device_id", access.deviceId).put("device_token", deviceToken))
+                context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
+                access
+            }
         }
-        context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
-        return access
     }
 
     override suspend fun validateSession(): AppAccess {
         val session = validSession()
         return try {
-            if (session.optString("kind") == "email" && !session.optBoolean("profile_ready", false)) {
-                val profile = request("/rest/v1/rpc/yd_complete_app_profile",
-                    JSONObject().put("contact_phone", session.getString("contact_phone")), headers(session))
-                val access = AppAccess.fromJson(profile)
-                sessionLock.withLock {
-                    val latest = store.read() ?: error("SIGN_IN_REQUIRED")
-                    check(latest.optString("access_token") == session.optString("access_token")) { "SESSION_CHANGED" }
-                    store.write(latest.put("profile_ready", true))
-                }
-                return access
+            val deviceId = session.optString("device_id")
+            val deviceToken = session.optString("device_token")
+            if (deviceId.isBlank() || !deviceToken.matches(TOKEN_FORMAT)) {
+                throw AccountRequestException(403, "APP_ACCESS_DENIED")
             }
             val result = request("/rest/v1/rpc/yd_app_access_status", JSONObject().put("app_token",
                 if (session.optString("kind") == "code") session.getString("app_token") else JSONObject.NULL), headers(session))
-            AppAccess.fromJson(result)
+            val access = AppAccess.fromJson(result)
+            if (session.optString("kind") == "code") {
+                check(access.deviceId == deviceId) { "SESSION_CHANGED" }
+                val expiry = result.getString("expires_at")
+                check(Instant.parse(expiry).isAfter(Instant.now())) { "INVALID_SESSION" }
+                sessionLock.withLock {
+                    val current = store.read() ?: error("SIGN_IN_REQUIRED")
+                    check(current.optString("app_token") == session.optString("app_token")) { "SESSION_CHANGED" }
+                    if (current.optString("expires_at") != expiry) store.write(current.put("expires_at", expiry))
+                }
+            } else {
+                // Existing email sessions can continue only on their own previously approved phone.
+                request("/rest/v1/rpc/yd_get_device_policy", JSONObject().put("device_token", deviceToken), headers(session))
+            }
+            access.copy(deviceId = deviceId)
         } catch (error: AccountRequestException) {
-            if (error.status == 401 || error.status == 403 || error.reason.contains("APP_ACCESS_DENIED")) clearLocal()
+            if (error.status == 401 || error.status == 403 || error.reason.contains("APP_ACCESS_DENIED")) {
+                val key = if (session.optString("kind") == "code") "app_token" else "access_token"
+                sessionLock.withLock {
+                    if (store.read()?.optString(key) == session.optString(key)) clearLocal()
+                }
+            }
             throw error
         }
     }
@@ -182,8 +166,7 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
             try {
                 val refreshed = request("/auth/v1/token?grant_type=refresh_token", JSONObject().put("refresh_token", session.getString("refresh_token")))
                 requireSession(refreshed)
-                refreshed.put("kind", "email").put("contact_phone", session.optString("contact_phone"))
-                    .put("profile_ready", session.optBoolean("profile_ready", false))
+                refreshed.put("kind", "email")
                 listOf("device_id", "device_token").forEach { if (session.has(it)) refreshed.put(it, session.getString(it)) }
                 store.write(refreshed); session = refreshed
             } catch (error: AccountRequestException) {
@@ -266,6 +249,7 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
 
     companion object {
         private val sessionLock = Mutex()
+        private val TOKEN_FORMAT = Regex("^[a-fA-F0-9]{64}$")
         const val SERVICE = "https://jqrznghqwdjbizjehzrm.supabase.co"
         const val PUBLIC_KEY = "sb_publishable_YG9zgjQ5Y56WiBtKdJMQvA_-UBAFv9B"
         const val WHATSAPP_URL = "https://wa.me/33766790352"

@@ -6,19 +6,15 @@ Plateforme de gestion d'appareils Android filtrés. Ce dépôt contient l'app An
 
 YiDream ouvre les onglets Accueil, Boutique, Sites et Réglages pour gérer les applications et les demandes de sites. Les informations de version et d’utilisation se trouvent dans Réglages. Le launcher musical est un projet distinct : [YZ MDM](https://github.com/YiDreamKosher/YZ-MDM). YiDream ne remplace pas l’écran d’accueil Android.
 
-## Required customer account (v6.0.0, Android version code 19)
+## Device approval and remote rules (v6.1.0, Android version code 20)
 
-The app opens a sign-in screen before showing Home, Apps, Sites or Settings. Users provide an email address and an international contact phone number, then either verify an email sign-in code or redeem a single-use administrator activation code. Email sign-in verifies the email address; the phone number remains a contact detail and is not SMS-verified. An administrator-code account does not claim email ownership.
+Prepare the phone in [YiDream Suite](https://yidreamkosher.github.io/YiDream-Suite/admin/). WebADB saves a stable device ID after applying the USB configuration. The owner can approve the prepared device. Its client can be assigned later. An approved administrator enters the account contact details and issues a single-use activation code, which can be entered on the phone or sent through the connected USB session. The app opens after the server accepts the code. New users do not need an email sign-in code. Previously approved device sessions can continue.
 
-WhatsApp assistance to **+33 7 66 79 03 52** is available before sign-in. Opening the conversation does not send a message. Account and device credentials are encrypted with Android Keystore. The app rechecks access when returning to the foreground; signed-out, expired or suspended accounts cannot open its interface. The installed Device Owner filtering remains active while signed out.
+The configured Android Device Owner hides or unhides managed packages and applies the existing device restrictions. Administrators can set individual package and domain rules from the device record. A device acknowledges the policy revision after processing it. YiDream checks for changes while open and schedules a background check when online. Android can delay background jobs. The last installed package restrictions persist offline.
 
-Install the matching backend from [YiDream Suite](https://github.com/YiDreamKosher/YiDream-Suite) before publishing this APK: migration `20261106135728_app_customer_access.sql` and Edge Function `app-auth`, with the Gmail sender configured privately. Administrators create expiring device-bound codes in the existing association screen and can suspend or restore eligible customer accounts. Older APKs must be updated to use the new account-protected cloud APIs.
+The Sites screen sends requests to allow or block a domain and shows the administrator's decision. The YiDream reader opens approved HTTPS text and HTML pages. It disables scripts, forms and subresource loading, and checks every redirect. Its rules apply to pages opened in YiDream.
 
-Settings now opens a list of six submenus: **Account**, **Appearance and navigation**, **Languages**, **YiDream updates**, **Filtering**, and **Contact and information**. Only the selected submenu is shown; Back returns to the list before leaving Settings. These screens remain behind account validation.
-
-The YiDream updates submenu checks the official release manifest and displays the available version and release notes. Installation requires an explicit **Update now** press; **Later** defers the notification. The optional background check only updates a badge, at most once every six hours. Downloads, package/version, checksum, certificate and Android's final installation result are verified by the existing updater. This updates the native app, separately from authorized catalog applications.
-
-The release keeps v5.10.0 navigation preferences, administrator contact and authorized catalog-update behavior described below. Android version code **19** is higher than the already published v5.10.0 code **18**, so existing installations can accept the signed update.
+The account screen retains WhatsApp assistance. Settings includes the device ID and the app update screen. Device and session credentials are stored with Android Keystore. Install the matching Suite migration before publishing this APK, then update the Suite web console.
 
 ## Réglages et mises à jour Android (v5.10.0)
 

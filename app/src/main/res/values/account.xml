@@ -1,33 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="account_title">Your YiDream account</string>
-    <string name="account_subtitle">Sign in to open your personal space. Use your email or the activation code supplied by your administrator.</string>
-    <string name="account_email_mode">Email sign-in</string>
-    <string name="account_code_mode">Admin code</string>
-    <string name="account_email">Email address</string>
-    <string name="account_email_hint">you@example.com</string>
-    <string name="account_phone">Phone number</string>
-    <string name="account_phone_hint">+33 6 12 34 56 78</string>
-    <string name="account_phone_note">Include your country code. This is a contact number; no SMS verification is performed.</string>
-    <string name="account_received_code">Code received by email</string>
+    <string name="account_title">Activate YiDream</string>
+    <string name="account_subtitle">Your administrator prepares this phone and approves its account. Enter the activation code they give you.</string>
     <string name="account_admin_code">Administrator activation code</string>
-    <string name="account_send_code">Send my sign-in code</string>
-    <string name="account_sign_in">Sign in</string>
     <string name="account_activate">Activate my account</string>
-    <string name="account_resend">Send another code</string>
-    <string name="account_code_sent">If the request is accepted, a sign-in code will arrive by email. Check your inbox and spam folder.</string>
     <string name="account_admin_note">This single-use code is supplied by your administrator and expires after 15 minutes.</string>
     <string name="account_whatsapp">Get help on WhatsApp</string>
     <string name="account_whatsapp_unavailable">No app can open WhatsApp. Contact +33 7 66 79 03 52.</string>
-    <string name="account_privacy">Your email and phone number are used to manage your account and may be viewed by your assigned administrator. WhatsApp opens only when you choose to contact support.</string>
+    <string name="account_privacy">Your administrator supplies the contact details for your account. WhatsApp opens when you choose to contact support.</string>
     <string name="account_checking">Checking your account…</string>
     <string name="account_check_failed">Your access could not be checked. Connect to the internet and try again.</string>
     <string name="account_retry">Try again</string>
     <string name="account_other">Use another account</string>
     <string name="account_working">Please wait…</string>
-    <string name="account_invalid_email">Enter a valid email address.</string>
-    <string name="account_invalid_phone">Enter your number with its country code, for example +33…</string>
-    <string name="account_invalid_email_code">Enter the 6–8 digit code received by email.</string>
     <string name="account_invalid_admin_code">Enter the full 32-character code from your administrator.</string>
     <string name="account_code_refused">This code could not be accepted. Check it or request a new one.</string>
     <string name="account_network_error">Unable to connect. Check your connection and try again.</string>
@@ -35,5 +20,9 @@
     <string name="account_session_expired">Please sign in again. Your access may have expired or been suspended.</string>
     <string name="account_settings_title">My account</string>
     <string name="account_logout">Sign out</string>
-    <string name="account_logout_note">Your filter stays active. To return, sign in by email or request a new activation code from your administrator.</string>
+    <string name="account_logout_note">Your filter stays active. Ask your administrator for a new activation code when you want to return.</string>
+    <string name="account_keep">Keep my current account</string>
+    <string name="account_replace_prompt">An activation code was sent by USB. Activate it to replace the account on this phone.</string>
+    <string name="account_service_pending">The activation service is not available yet. Contact your administrator.</string>
+    <string name="account_device_id">Device ID: %1$s</string>
 </resources>

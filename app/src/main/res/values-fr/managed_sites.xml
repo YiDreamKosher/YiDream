@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="managed_sites_title">Sites</string>
+    <string name="managed_sites_limits">Lisez les pages HTTPS autorisées dans YiDream. Le lecteur affiche le texte et les liens. Les scripts, formulaires et ressources externes sont indisponibles.</string>
+    <string name="managed_sites_open_approved">Ouvrir un site autorisé</string>
+    <string name="managed_sites_open">Ouvrir</string>
+    <string name="managed_sites_new_request">Demander une modification</string>
+    <string name="managed_sites_allow_request">Demande d’autorisation</string>
+    <string name="managed_sites_block_request">Demande de blocage</string>
+    <string name="managed_sites_block_option">Demander le blocage plutôt que l’accès</string>
+    <string name="managed_sites_back">Retour aux sites</string>
+    <string name="managed_sites_loading_rules">Vérification des règles de l’appareil…</string>
+    <string name="managed_sites_rules_unavailable">Impossible de vérifier les règles. Vérifiez votre connexion.</string>
+    <string name="managed_sites_blocked">Cette adresse n’est pas autorisée sur cet appareil.</string>
+    <string name="managed_sites_unsupported">Cette page utilise une fonction indisponible dans le lecteur YiDream.</string>
+    <string name="managed_sites_unavailable">Impossible d’ouvrir cette page. Vérifiez l’adresse et réessayez.</string>
+</resources>
