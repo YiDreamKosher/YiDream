@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -150,6 +151,7 @@ class MainActivity : AppCompatActivity() {
         selectTab(MainNavigation.restore(restoredTab))
         val currentSettings = settingsMenu
         if (!access.offline) {
+            lifecycleScope.launch(Dispatchers.IO) { OfflineRequests.flush(applicationContext) }
             appUpdates.checkAvailability { available ->
                 if (mainVisible && settingsMenu === currentSettings) currentSettings.setUpdateAvailable(available)
             }
@@ -475,9 +477,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (deviceOwnerManager.isDeviceOwner()) {
-                json.optString("unlock_intermediate_key", null)?.let {
-                    if (it.isNotBlank()) unlockManager.storeIntermediateKey(it)
-                }
+                val key = json.optString("unlock_intermediate_key")
+                if (key.isNotBlank()) unlockManager.storeIntermediateKey(key)
                 deviceOwnerManager.applyCategoryBlocking(
                     blockBrowsers = json.optBoolean("block_browsers", false),
                     blockAi = json.optBoolean("block_ai", false),
