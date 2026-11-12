@@ -35,7 +35,6 @@ class MainActivity : AppCompatActivity() {
     private var mainVisible = false
     private var usbConfigurationImported = false
     private var connectivityObserver: Closeable? = null
-    private var lastNetworkOnline: Boolean? = null
     private var offlineExpiry: Job? = null
     private var restoredTab: String? = null
     private var restoredSettingsPage: String? = null
@@ -351,14 +350,9 @@ class MainActivity : AppCompatActivity() {
         if (::accountGate.isInitialized) {
             mainVisible = false
             accountGate.resume(UsbActivation.take())
-            lastNetworkOnline = InternetReachability.isOnline(this)
-            connectivityObserver = InternetReachability.observe(this) { online ->
-                val previous = lastNetworkOnline
-                lastNetworkOnline = online
-                if (previous != null && previous != online) {
-                    hideWorkspace()
-                    accountGate.resume(null)
-                }
+            connectivityObserver = InternetReachability.observe(this) {
+                hideWorkspace()
+                accountGate.resume(null)
             }
         }
     }

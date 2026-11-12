@@ -202,6 +202,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: YiDream ${{ needs.build.outputs.version_tag }}
           body: |
+            Verify account access directly on filtered networks and keep encrypted session reads consistent.
             Request access to a website for 24 hours or until a selected trip end time.
             The YiDream reader closes temporary access when it expires.
             Previously approved phones can open YiDream offline and queue website and app access requests.

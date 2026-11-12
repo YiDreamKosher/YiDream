@@ -117,7 +117,7 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
         fun current() = generation == sitesGeneration && activity.findViewById<LinearLayout>(R.id.sitesContent) === content
         content.removeAllViews()
         label(content, text(R.string.managed_sites_title), true)
-        val online = access?.offline != true && InternetReachability.isOnline(activity)
+        val online = access?.offline != true && InternetReachability.hasInternetRoute(activity)
         if (online) label(content, text(R.string.managed_sites_limits))
         if (needsPairing(content)) return
         if (online) action(content, text(R.string.managed_sites_open_approved)) { openSite() }
@@ -392,7 +392,7 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
                         dialog.dismiss()
                         val view = activity.findViewById<View>(R.id.sitesContent)
                         refreshSites()
-                        if (InternetReachability.isOnline(activity)) {
+                        if (InternetReachability.hasInternetRoute(activity)) {
                             withContext(Dispatchers.IO) { OfflineRequests.flush(activity) }
                             if (activity.findViewById<View>(R.id.sitesContent) === view) refreshSites()
                         }
