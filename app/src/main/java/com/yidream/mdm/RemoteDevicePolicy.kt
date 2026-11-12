@@ -225,6 +225,7 @@ internal object RemoteDevicePolicy {
     fun cancel(context: Context) {
         pause()
         latest = null
+        DeviceOwnerManager(context).closeManagedChrome()
         preferences(context).edit().remove("confirmed_policy").apply()
         context.getSystemService(JobScheduler::class.java)?.cancel(JOB_ID)
     }
@@ -236,8 +237,11 @@ internal object RemoteDevicePolicy {
     private suspend fun synchronize(context: Context, renewSession: Boolean): PolicySync {
         val owner = DeviceOwnerManager(context)
         val service = MdmService(context)
-        val device = service.deviceCredential() ?: return PolicySync.NotEnrolled
         if (!owner.isDeviceOwner()) return PolicySync.NotEnrolled
+        val device = service.deviceCredential() ?: run {
+            owner.closeManagedChrome()
+            return PolicySync.NotEnrolled
+        }
         if (!InternetReachability.hasInternetRoute(context)) return cachedForReader(context, device)
         return try {
             if (renewSession) AppAccountService(context).validateSession()
@@ -246,8 +250,9 @@ internal object RemoteDevicePolicy {
             check(service.deviceCredential() == device && owner.isDeviceOwner()) { "SESSION_CHANGED" }
             if ((current(context)?.revision ?: 0) > policy.revision) return PolicySync.Unavailable
 
-            var applied = true
+            var applied = owner.applyManagedChrome(policy) { service.deviceCredential() == device && owner.isDeviceOwner() }
             for ((name, allowed) in policy.apps) {
+                if (name == ChromeManagedPolicy.PACKAGE_NAME) continue
                 currentCoroutineContext().ensureActive()
                 check(service.deviceCredential() == device && owner.isDeviceOwner()) { "SESSION_CHANGED" }
                 if (!owner.applyRemoteAppRule(name, allowed)) applied = false
@@ -289,6 +294,7 @@ internal object RemoteDevicePolicy {
         } catch (error: Exception) {
             when (error.message) {
                 "APP_ACCESS_DENIED", "SESSION_EXPIRED", "SIGN_IN_REQUIRED" -> {
+                    if (service.deviceCredential() == device) owner.closeManagedChrome()
                     forgetConfirmed(context, device)
                     PolicySync.Denied
                 }

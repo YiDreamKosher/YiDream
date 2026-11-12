@@ -146,6 +146,7 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
                 val session = JSONObject().put("kind", "code").put("app_token", appToken)
                     .put("expires_at", expiresAt).put("device_id", access.deviceId).put("device_token", deviceToken)
                 store.write(OfflineAccountLease.confirm(context, session, access))
+                DeviceOwnerManager(context).closeManagedChrome()
                 context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
                 access
             }
@@ -274,6 +275,7 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
 
     private fun clearLocal() {
         store.clear()
+        DeviceOwnerManager(context).closeManagedChrome()
         // A device credential is not a policy. Forgetting it never changes Device Owner or filtering.
         context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
     }

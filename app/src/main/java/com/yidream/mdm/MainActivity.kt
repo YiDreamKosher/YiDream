@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
         // Device Owner filtering and its configuration remain independent from account sign-in.
         importWebAdbConfigIfPresent()
         accountClient = AppAccountDependencies.factory(this)
+        if (!accountClient.hasSession) deviceOwnerManager.closeManagedChrome()
         accountGate = AccountGateController(this, accountClient,
             canRecover = {
                 deviceOwnerManager.isDeviceOwner() && deviceOwnerManager.isDebuggingBlocked() &&

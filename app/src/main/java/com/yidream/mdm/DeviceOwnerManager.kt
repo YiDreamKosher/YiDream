@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.UserManager
 import android.provider.Telephony
 import android.telecom.TelecomManager
+import android.webkit.WebView
 
 class DeviceOwnerManager(private val context: Context) {
 
@@ -56,6 +57,7 @@ class DeviceOwnerManager(private val context: Context) {
         "com.bbk.appstore", "com.vivo.appstore", "org.fdroid.fdroid", "com.aurora.store"
     )
     private val lockdownPreferences get() = context.getSharedPreferences("yidream_installation_lock", Context.MODE_PRIVATE)
+    private val chromePreferences get() = context.getSharedPreferences("yidream_managed_chrome", Context.MODE_PRIVATE)
     private val users get() = context.getSystemService(UserManager::class.java)
 
     private fun installationChannels(): Set<String> {
@@ -122,6 +124,54 @@ class DeviceOwnerManager(private val context: Context) {
             false
         }
     }
+
+    /** The existing per-device Chrome app permission enables the pilot on updated devices. */
+    internal fun applyManagedChrome(policy: DevicePolicy, enrollmentIsCurrent: () -> Boolean): Boolean =
+        synchronized(chromePolicyLock) {
+            val chrome = ChromeManagedPolicy.PACKAGE_NAME
+            val requested = policy.apps[chrome]
+            val previouslyManaged = chromePreferences.getBoolean(CHROME_CONFIGURED, false)
+            if (!enrollmentIsCurrent()) return@synchronized false
+            if (requested != true) {
+                return@synchronized when {
+                    requested == false -> !chromeIsWebView() && applyRemoteAppRule(chrome, false)
+                    previouslyManaged -> closeManagedChrome()
+                    else -> true
+                }
+            }
+            if (!isDeviceOwner() || chromeIsWebView()) return@synchronized false
+            if (!ChromeManagedPolicy.canManage(context)) {
+                setAppBlocked(chrome, true)
+                return@synchronized false
+            }
+            // Restart Chrome on rule changes. Keep it hidden if Android cannot store the policy.
+            if (!ChromeManagedPolicy.matches(context, this, policy) &&
+                (!setAppBlocked(chrome, true) || !ChromeManagedPolicy.apply(context, this, policy))) {
+                return@synchronized false
+            }
+            if (!chromePreferences.edit().putBoolean(CHROME_CONFIGURED, true).commit() ||
+                !enrollmentIsCurrent()) {
+                setAppBlocked(chrome, true)
+                return@synchronized false
+            }
+            applyRemoteAppRule(chrome, true)
+        }
+
+    internal fun closeManagedChrome(): Boolean = synchronized(chromePolicyLock) {
+        if (!chromePreferences.getBoolean(CHROME_CONFIGURED, false)) return@synchronized true
+        !chromeIsWebView() && setAppBlocked(ChromeManagedPolicy.PACKAGE_NAME, true)
+    }
+
+    internal fun canOpenManagedChrome(policy: DevicePolicy): Boolean = synchronized(chromePolicyLock) {
+        val chrome = ChromeManagedPolicy.PACKAGE_NAME
+        policy.apps[chrome] == true && chromePreferences.getBoolean(CHROME_CONFIGURED, false) &&
+            ChromeManagedPolicy.matches(context, this, policy) &&
+            runCatching { !dpm.isApplicationHidden(adminComponent, chrome) }.getOrDefault(false)
+    }
+
+    private fun chromeIsWebView(): Boolean = runCatching {
+        WebView.getCurrentWebViewPackage()?.packageName == ChromeManagedPolicy.PACKAGE_NAME
+    }.getOrDefault(false)
 
     fun isAppBlocked(packageName: String): Boolean {
         if (!isDeviceOwner()) return false
@@ -234,5 +284,16 @@ class DeviceOwnerManager(private val context: Context) {
             runCatching { dpm.setApplicationHidden(adminComponent, it, false) }
         }
         lockdownPreferences.edit().clear().apply()
+        synchronized(chromePolicyLock) {
+            if (chromePreferences.getBoolean(CHROME_CONFIGURED, false)) {
+                ChromeManagedPolicy.clear(context, this)
+                chromePreferences.edit().clear().apply()
+            }
+        }
+    }
+
+    private companion object {
+        const val CHROME_CONFIGURED = "policy_configured"
+        val chromePolicyLock = Any()
     }
 }
