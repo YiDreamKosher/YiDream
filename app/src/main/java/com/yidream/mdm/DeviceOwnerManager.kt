@@ -275,6 +275,11 @@ class DeviceOwnerManager(private val context: Context) {
         return ready
     }
 
+    internal fun removeManagement() = synchronized(chromePolicyLock) {
+        removeBaseRestrictions()
+        dpm.clearDeviceOwnerApp(context.packageName)
+    }
+
     fun removeBaseRestrictions() {
         if (!isDeviceOwner()) return
         (baseRestrictions + UserManager.DISALLOW_INSTALL_APPS + UserManager.DISALLOW_DEBUGGING_FEATURES).forEach {

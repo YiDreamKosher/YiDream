@@ -222,10 +222,10 @@ internal object RemoteDevicePolicy {
         foreground = null
     }
 
-    fun cancel(context: Context) {
+    fun cancel(context: Context, closeChrome: Boolean = true) {
         pause()
         latest = null
-        DeviceOwnerManager(context).closeManagedChrome()
+        if (closeChrome) DeviceOwnerManager(context).closeManagedChrome()
         preferences(context).edit().remove("confirmed_policy").apply()
         context.getSystemService(JobScheduler::class.java)?.cancel(JOB_ID)
     }
