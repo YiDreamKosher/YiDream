@@ -12,6 +12,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowNetworkCapabilities
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -20,10 +21,9 @@ class AccountNetworkTest {
         val context = RuntimeEnvironment.getApplication()
         val connectivity = requireNotNull(context.getSystemService(ConnectivityManager::class.java))
         val network = requireNotNull(connectivity.activeNetwork)
-        val capabilities = NetworkCapabilities.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .removeCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-            .build()
+        val capabilities = ShadowNetworkCapabilities.newInstance()
+        shadowOf(capabilities).addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        shadowOf(capabilities).removeCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
         shadowOf(connectivity).setNetworkCapabilities(network, capabilities)
 
         assertTrue(InternetReachability.hasInternetRoute(context))
@@ -35,8 +35,9 @@ class AccountNetworkTest {
         val context = RuntimeEnvironment.getApplication()
         val connectivity = requireNotNull(context.getSystemService(ConnectivityManager::class.java))
         val network = requireNotNull(connectivity.activeNetwork)
-        shadowOf(connectivity).setNetworkCapabilities(network, NetworkCapabilities.Builder()
-            .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build())
+        val capabilities = ShadowNetworkCapabilities.newInstance()
+        shadowOf(capabilities).removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        shadowOf(connectivity).setNetworkCapabilities(network, capabilities)
 
         assertFalse(InternetReachability.hasInternetRoute(context))
     }
