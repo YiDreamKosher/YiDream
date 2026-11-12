@@ -3,4 +3,5 @@
     <string name="lockdown_admin_recovery">תחזוקת מנהל</string>
     <string name="lockdown_incomplete">לא ניתן היה לאמת את נעילת הטלפון. פנו למנהל לפני מסירת המכשיר.</string>
     <string name="lockdown_retry_code">בוצעו יותר מדי ניסיונות. יש להמתין 15 דקות לפני ניסיון נוסף.</string>
+    <string name="usb_profile_webview">הדפדפן %1$s מספק גם את WebView. יש לבחור ספק WebView נפרד בטלפון ולנסות שוב להגדיר באמצעות USB.</string>
 </resources>

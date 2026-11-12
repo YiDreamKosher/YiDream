@@ -170,6 +170,47 @@ class AccountGateTest {
         assertNull(activity.findViewById<View>(R.id.pageHome))
     }
 
+    @Test fun profileProvisioningFileStaysAvailableWhenItCannotBeApplied() {
+        val configuration = File(app.getExternalFilesDir(null), "yidream_config.json")
+        configuration.parentFile?.mkdirs()
+        configuration.writeText("""{"app_profile":"mp3","allowed_packages":[],"profile_request_id":"90c0e024-62e3-48ec-8c4a-6d148d3745c1"}""")
+        try {
+            launch()
+            assertTrue("A failed profile import must leave the configuration for retry", configuration.exists())
+            assertFalse("A failed profile import must not be confirmed over USB",
+                File(configuration.parentFile, "yidream_config_applied.json").exists())
+            assertNotNull(activity.findViewById<View>(R.id.accountScreen))
+        } finally {
+            configuration.delete()
+        }
+    }
+
+    @Test fun appliedProfileAcknowledgesOnlyItsOwnReceiptNonce() {
+        val owner = DeviceOwnerManager(app)
+        shadowOf(owner.dpm).setDeviceOwner(owner.adminComponent)
+        val configuration = File(app.getExternalFilesDir(null), "yidream_config.json")
+        val receipt = File(configuration.parentFile, "yidream_config_applied.json")
+        val nonce = "90c0e024-62e3-48ec-8c4a-6d148d3745c1"
+        val key = "A".repeat(43) + "="
+        configuration.parentFile?.mkdirs()
+        configuration.writeText(org.json.JSONObject()
+            .put("app_profile", "qin")
+            .put("allowed_packages", org.json.JSONArray())
+            .put("profile_request_id", nonce)
+            .put("unlock_intermediate_key", key)
+            .toString())
+        try {
+            launch()
+            assertFalse(configuration.exists())
+            val response = org.json.JSONObject(receipt.readText())
+            assertEquals(1, response.length())
+            assertEquals(nonce, response.getString("profile_request_id"))
+        } finally {
+            configuration.delete()
+            receipt.delete()
+        }
+    }
+
     @Test fun foregroundAlwaysRechecksAndHidesPreviouslyValidatedWorkspace() {
         fake.savedSession = true
         launch()
