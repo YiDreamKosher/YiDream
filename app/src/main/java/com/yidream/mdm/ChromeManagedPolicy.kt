@@ -8,6 +8,13 @@ import android.webkit.WebView
 import org.json.JSONArray
 import java.net.URI
 
+internal enum class ManagedChromeStatus(val wireValue: String) {
+    READY("ready"),
+    ACTIVE("active"),
+    UNSUPPORTED("unsupported"),
+    FAILED("failed")
+}
+
 /** Projects permanent YiDream site rules into Chrome's managed configuration. */
 internal object ChromeManagedPolicy {
     const val PACKAGE_NAME = "com.android.chrome"

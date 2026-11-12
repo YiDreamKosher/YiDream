@@ -64,7 +64,10 @@ class ChromeManagedPolicyTest {
     }
 
     @Test fun rejectsMissingUnsupportedAndWebViewProviderChrome() {
+        val owner = configureOwner()
+        val requested = DevicePolicy(1, emptyMap(), emptyMap(), managedChromeEnabled = true)
         assertFalse(ChromeManagedPolicy.canManage(context))
+        assertEquals(ManagedChromeStatus.UNSUPPORTED, owner.applyManagedChrome(requested) { true })
         installChrome("85.0.0.0")
         assertFalse(ChromeManagedPolicy.canManage(context))
         val current = installChrome("86.0.0.0")
@@ -92,18 +95,28 @@ class ChromeManagedPolicyTest {
         val owner = configureOwner()
         installChrome()
         assertTrue(owner.setAppBlocked(chrome, true))
-        val policy = DevicePolicy(1, mapOf(chrome to true), mapOf("example.org" to true))
-
-        assertFalse(owner.applyManagedChrome(policy) { false })
+        val legacy = DevicePolicy(1, mapOf(chrome to true), mapOf("example.org" to true))
+        assertEquals(ManagedChromeStatus.READY, owner.applyManagedChrome(legacy) { true })
+        assertFalse(owner.canOpenManagedChrome(legacy))
         assertTrue(owner.isAppBlocked(chrome))
-        assertTrue(owner.applyManagedChrome(policy) { true })
+
+        val policy = legacy.copy(apps = mapOf(chrome to false), managedChromeEnabled = true)
+
+        assertEquals(ManagedChromeStatus.FAILED, owner.applyManagedChrome(policy) { false })
+        assertTrue(owner.isAppBlocked(chrome))
+        assertEquals(ManagedChromeStatus.ACTIVE, owner.applyManagedChrome(policy) { true })
         assertTrue(owner.canOpenManagedChrome(policy))
         assertFalse(owner.isAppBlocked(chrome))
 
         val invalid = policy.copy(sites = mapOf("*.example.org" to true))
-        assertFalse(owner.applyManagedChrome(invalid) { true })
+        assertEquals(ManagedChromeStatus.FAILED, owner.applyManagedChrome(invalid) { true })
         assertTrue(owner.isAppBlocked(chrome))
-        assertTrue(owner.applyManagedChrome(policy) { true })
+        assertEquals(ManagedChromeStatus.ACTIVE, owner.applyManagedChrome(policy) { true })
+        val disabled = policy.copy(managedChromeEnabled = false)
+        assertEquals(ManagedChromeStatus.READY, owner.applyManagedChrome(disabled) { true })
+        assertFalse(owner.canOpenManagedChrome(disabled))
+        assertTrue(owner.isAppBlocked(chrome))
+        assertEquals(ManagedChromeStatus.ACTIVE, owner.applyManagedChrome(policy) { true })
         assertTrue(owner.closeManagedChrome())
         assertFalse(owner.canOpenManagedChrome(policy))
         assertTrue(owner.isAppBlocked(chrome))

@@ -125,36 +125,40 @@ class DeviceOwnerManager(private val context: Context) {
         }
     }
 
-    /** The existing per-device Chrome app permission enables the pilot on updated devices. */
-    internal fun applyManagedChrome(policy: DevicePolicy, enrollmentIsCurrent: () -> Boolean): Boolean =
+    /** Chrome can only be opened by the dedicated managed configuration. */
+    internal fun applyManagedChrome(policy: DevicePolicy, enrollmentIsCurrent: () -> Boolean): ManagedChromeStatus =
         synchronized(chromePolicyLock) {
+            if (!enrollmentIsCurrent() || !isDeviceOwner()) return@synchronized ManagedChromeStatus.FAILED
             val chrome = ChromeManagedPolicy.PACKAGE_NAME
-            val requested = policy.apps[chrome]
             val previouslyManaged = chromePreferences.getBoolean(CHROME_CONFIGURED, false)
-            if (!enrollmentIsCurrent()) return@synchronized false
-            if (requested != true) {
-                return@synchronized when {
-                    requested == false -> !chromeIsWebView() && applyRemoteAppRule(chrome, false)
+            val supported = ChromeManagedPolicy.canManage(context)
+            if (!policy.managedChromeEnabled) {
+                val closed = when {
                     previouslyManaged -> closeManagedChrome()
+                    policy.apps.containsKey(chrome) && !chromeIsWebView() -> setAppBlocked(chrome, true)
                     else -> true
                 }
+                return@synchronized when {
+                    !closed -> ManagedChromeStatus.FAILED
+                    supported -> ManagedChromeStatus.READY
+                    else -> ManagedChromeStatus.UNSUPPORTED
+                }
             }
-            if (!isDeviceOwner() || chromeIsWebView()) return@synchronized false
-            if (!ChromeManagedPolicy.canManage(context)) {
-                setAppBlocked(chrome, true)
-                return@synchronized false
+            if (!supported) {
+                if (!chromeIsWebView()) setAppBlocked(chrome, true)
+                return@synchronized ManagedChromeStatus.UNSUPPORTED
             }
             // Restart Chrome on rule changes. Keep it hidden if Android cannot store the policy.
             if (!ChromeManagedPolicy.matches(context, this, policy) &&
                 (!setAppBlocked(chrome, true) || !ChromeManagedPolicy.apply(context, this, policy))) {
-                return@synchronized false
+                return@synchronized ManagedChromeStatus.FAILED
             }
             if (!chromePreferences.edit().putBoolean(CHROME_CONFIGURED, true).commit() ||
                 !enrollmentIsCurrent()) {
                 setAppBlocked(chrome, true)
-                return@synchronized false
+                return@synchronized ManagedChromeStatus.FAILED
             }
-            applyRemoteAppRule(chrome, true)
+            if (applyRemoteAppRule(chrome, true)) ManagedChromeStatus.ACTIVE else ManagedChromeStatus.FAILED
         }
 
     internal fun closeManagedChrome(): Boolean = synchronized(chromePolicyLock) {
@@ -164,7 +168,7 @@ class DeviceOwnerManager(private val context: Context) {
 
     internal fun canOpenManagedChrome(policy: DevicePolicy): Boolean = synchronized(chromePolicyLock) {
         val chrome = ChromeManagedPolicy.PACKAGE_NAME
-        policy.apps[chrome] == true && chromePreferences.getBoolean(CHROME_CONFIGURED, false) &&
+        policy.managedChromeEnabled && chromePreferences.getBoolean(CHROME_CONFIGURED, false) &&
             ChromeManagedPolicy.matches(context, this, policy) &&
             runCatching { !dpm.isApplicationHidden(adminComponent, chrome) }.getOrDefault(false)
     }

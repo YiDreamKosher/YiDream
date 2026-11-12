@@ -8,7 +8,7 @@ YiDream ouvre les onglets Accueil, Boutique, Sites et Réglages pour gérer les 
 
 ## Managed Chrome pilot
 
-Use a managed Android phone with an installed, compatible Chrome release (Android Chrome 86 or newer) and a separate Android System WebView provider. In YiDream Suite, open the phone's **Remote rules** and authorize **Chrome** (`com.android.chrome`) only after the phone is running this pilot build. YiDream applies the phone's permanent site rules as managed Chrome restrictions, blocking navigation by default and allowing approved HTTPS domains. **Open in Chrome** appears in YiDream on request cards that are covered by permanent Chrome permissions. Remove Chrome access with the same per-device application rule.
+Use a managed Android phone running this pilot build with an installed, compatible Chrome release (Android Chrome 86 or newer) and a separate Android System WebView provider. In YiDream Suite, open the phone's **Remote rules** and enable **Managed Chrome** once the phone has reported compatibility. YiDream applies the phone's permanent site rules as managed Chrome restrictions, blocking navigation by default and allowing approved HTTPS domains. **Open in Chrome** appears in YiDream on request cards that are covered by permanent Chrome permissions. Use the same control in Suite to disable access.
 
 Timed site grants stay in the YiDream reader. Chrome's URL policies do not provide an expiration per rule. The Chrome integration controls browser navigation, and policy synchronization confirms Android's stored restrictions. Validate Chrome's effective policies at `chrome://policy`, then exercise allowed and denied domains, subdomains, redirects, and policy changes on a physical phone. The pilot does not install Chrome or enable a VPN.
 

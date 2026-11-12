@@ -32,7 +32,8 @@ internal data class DevicePolicy(
     val revision: Long,
     val apps: Map<String, Boolean>,
     val sites: Map<String, Boolean>,
-    val temporarySites: Map<String, Instant> = emptyMap()
+    val temporarySites: Map<String, Instant> = emptyMap(),
+    val managedChromeEnabled: Boolean = false
 ) {
     data class SiteAccess(val allowed: Boolean, val expiresAt: Instant? = null)
 
@@ -58,6 +59,7 @@ internal data class DevicePolicy(
     fun toJson(): JSONObject = JSONObject()
         .put("revision", revision).put("apps", JSONObject(apps)).put("sites", JSONObject(sites))
         .put("temporary_sites", JSONObject(temporarySites.mapValues { it.value.toString() }))
+        .put("managed_chrome", JSONObject().put("enabled", managedChromeEnabled))
 
     fun toBootCache(boot: Int): JSONObject = toJson()
         .put("server_time", timeAtFetch.toString()).put("checked_elapsed", fetchElapsed).put("boot", boot)
@@ -90,7 +92,8 @@ internal data class DevicePolicy(
         fun parse(
             value: JSONObject,
             requireWindows: Boolean = false,
-            elapsedAtFetch: Long = SystemClock.elapsedRealtime()
+            elapsedAtFetch: Long = SystemClock.elapsedRealtime(),
+            acceptsManagedChrome: Boolean = true
         ): DevicePolicy {
             val revision = when (val number = value.get("revision")) {
                 is Int -> number.toLong()
@@ -116,8 +119,10 @@ internal data class DevicePolicy(
             require(!value.isNull("server_time") || (!requireWindows && temporarySites.isEmpty()))
             val serverTime = if (value.isNull("server_time")) Instant.now()
                 else parseSiteWindowTime(value.getString("server_time"))
+            val managedChromeEnabled = acceptsManagedChrome &&
+                value.optJSONObject("managed_chrome")?.opt("enabled") == true
             return DevicePolicy(revision, rules("apps", 100, ::validPackageName),
-                rules("sites", 200, ::validHost), temporarySites).apply {
+                rules("sites", 200, ::validHost), temporarySites, managedChromeEnabled).apply {
                 timeAtFetch = serverTime
                 fetchElapsed = elapsedAtFetch
             }
@@ -250,7 +255,11 @@ internal object RemoteDevicePolicy {
             check(service.deviceCredential() == device && owner.isDeviceOwner()) { "SESSION_CHANGED" }
             if ((current(context)?.revision ?: 0) > policy.revision) return PolicySync.Unavailable
 
-            var applied = owner.applyManagedChrome(policy) { service.deviceCredential() == device && owner.isDeviceOwner() }
+            val chromeStatus = owner.applyManagedChrome(policy) {
+                service.deviceCredential() == device && owner.isDeviceOwner()
+            }
+            var applied = chromeStatus != ManagedChromeStatus.FAILED &&
+                (!policy.managedChromeEnabled || chromeStatus == ManagedChromeStatus.ACTIVE)
             for ((name, allowed) in policy.apps) {
                 if (name == ChromeManagedPolicy.PACKAGE_NAME) continue
                 currentCoroutineContext().ensureActive()
@@ -270,7 +279,7 @@ internal object RemoteDevicePolicy {
                 .remove("confirmed_policy")
                 .commit()
             val report = try {
-                service.reportPolicy(device, policy.revision, applied && stored)
+                service.reportPolicy(device, policy.revision, applied && stored, chromeStatus)
             } catch (error: Exception) {
                 if (error is CancellationException || error.message == "APP_ACCESS_DENIED" ||
                     error.message == "SESSION_CHANGED" || error.message == "SESSION_EXPIRED" ||
@@ -280,6 +289,9 @@ internal object RemoteDevicePolicy {
             if (!stored) return PolicySync.Unavailable
             currentCoroutineContext().ensureActive()
             check(service.deviceCredential() == device && owner.isDeviceOwner()) { "SESSION_CHANGED" }
+            if (policy.managedChromeEnabled && report != null && !report.managedChromeEnabled) {
+                owner.closeManagedChrome()
+            }
             val confirmed = report?.takeIf { it.revision == policy.revision }
             val accepted = confirmed ?: (report?.takeIf { it.revision > policy.revision } ?: policy)
                 .copy(temporarySites = emptyMap())

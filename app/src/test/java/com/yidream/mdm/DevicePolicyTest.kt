@@ -107,4 +107,18 @@ class DevicePolicyTest {
         value.getJSONObject("sites").put("127.0.0.1", true)
         assertTrue(runCatching { DevicePolicy.parse(value) }.isFailure)
     }
+
+    @Test
+    fun onlyTheDedicatedBooleanCanEnableManagedChromeAndItSurvivesCaching() {
+        val value = JSONObject("""{"revision":4,"apps":{"com.android.chrome":true},"sites":{}}""")
+        assertFalse(DevicePolicy.parse(value).managedChromeEnabled)
+        val chrome = JSONObject().put("enabled", "true")
+        value.put("managed_chrome", chrome)
+        assertFalse(DevicePolicy.parse(value).managedChromeEnabled)
+        chrome.put("enabled", true)
+        assertFalse(DevicePolicy.parse(value, acceptsManagedChrome = false).managedChromeEnabled)
+        val enabled = DevicePolicy.parse(value)
+        assertTrue(enabled.managedChromeEnabled)
+        assertEquals(enabled, DevicePolicy.parse(enabled.toJson()))
+    }
 }

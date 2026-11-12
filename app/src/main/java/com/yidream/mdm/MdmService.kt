@@ -47,18 +47,39 @@ class MdmService(context: Context) {
         }
     }
 
-    internal suspend fun devicePolicy(device: Pair<String, String>): DevicePolicy {
-        val requestStart = SystemClock.elapsedRealtime()
-        val result = rpc("yd_get_device_policy_v2", policyCredential(device)).getJSONObject(0)
-        return DevicePolicy.parse(result, requireWindows = true, elapsedAtFetch = requestStart)
+    internal suspend fun devicePolicy(device: Pair<String, String>): DevicePolicy =
+        policyRpc("yd_get_device_policy", input = { policyCredential(device) })
+
+    internal suspend fun reportPolicy(
+        device: Pair<String, String>, revision: Long, applied: Boolean, chromeStatus: ManagedChromeStatus
+    ): DevicePolicy = policyRpc("yd_report_device_policy", chromeStatus) {
+        policyCredential(device).put("policy_revision", revision).put("applied", applied)
     }
 
-    internal suspend fun reportPolicy(device: Pair<String, String>, revision: Long, applied: Boolean): DevicePolicy {
-        val requestStart = SystemClock.elapsedRealtime()
-        val result = rpc("yd_report_device_policy_v2", policyCredential(device)
-            .put("policy_revision", revision).put("applied", applied)).getJSONObject(0)
-        return DevicePolicy.parse(result, requireWindows = true, elapsedAtFetch = requestStart)
+    private suspend fun policyRpc(
+        name: String, chromeStatus: ManagedChromeStatus? = null, input: () -> JSONObject
+    ): DevicePolicy {
+        suspend fun request(suffix: String): DevicePolicy {
+            val requestStart = SystemClock.elapsedRealtime()
+            val body = input()
+            val supportsChrome = suffix == "_v3"
+            if (supportsChrome && chromeStatus != null) body.put("chrome_status", chromeStatus.wireValue)
+            val result = rpc(name + suffix, body).getJSONObject(0)
+            return DevicePolicy.parse(result, requireWindows = suffix.isNotEmpty(),
+                elapsedAtFetch = requestStart, acceptsManagedChrome = supportsChrome)
+        }
+        return try {
+            request("_v3")
+        } catch (_: MissingRpcException) {
+            try {
+                request("_v2")
+            } catch (_: MissingRpcException) {
+                request("")
+            }
+        }
     }
+
+    private class MissingRpcException : IllegalStateException("SERVICE_NOT_READY")
 
     private fun policyCredential(device: Pair<String, String>): JSONObject {
         check(device == deviceCredential()) { "SESSION_CHANGED" }
@@ -96,11 +117,18 @@ class MdmService(context: Context) {
             val status = connection.responseCode
             if (status !in 200..299) {
                 val errorResponse = connection.errorStream?.bufferedReader()?.use { reader ->
-                    val buffer = CharArray(512)
-                    val length = reader.read(buffer)
-                    if (length < 0) "" else String(buffer, 0, length)
+                    val buffer = CharArray(4096)
+                    var length = 0
+                    while (length < buffer.size) {
+                        val count = reader.read(buffer, length, buffer.size - length)
+                        if (count <= 0) break
+                        length += count
+                    }
+                    String(buffer, 0, length)
                 }
-                val reason = runCatching { JSONObject(errorResponse.orEmpty()).optString("message") }.getOrNull()
+                val details = runCatching { JSONObject(errorResponse.orEmpty()) }.getOrNull()
+                val reason = details?.optString("message")
+                if (status == 404 && details?.optString("code") == "PGRST202") throw MissingRpcException()
                 error(when {
                     reason in setOf("INVALID_APP_REQUEST", "INVALID_SITE_REQUEST", "INVALID_SITE_WINDOW",
                         "SITE_WINDOW_EXPIRED", "SITE_REQUEST_LIMIT", "APP_REQUEST_LIMIT") ->
