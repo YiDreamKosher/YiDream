@@ -24,11 +24,18 @@ class MdmService(context: Context) {
 
     suspend fun catalog(): JSONArray = rpc("yd_device_catalog", credentials())
     suspend fun requests(): JSONArray = rpc("yd_device_requests", credentials())
-    suspend fun requestSite(address: String, reason: String, requestId: String, allowed: Boolean = true) {
-        val normalized = normalizeSite(address)
-        rpc("yd_request_site_change", credentials().put("site_url", normalized)
-            .put("request_reason", reason.trim()).put("client_request_id", requestId)
-            .put("requested_allowed", allowed))
+    suspend fun appRequests(): JSONArray = rpc("yd_device_app_requests", credentials())
+
+    internal suspend fun sendQueuedRequest(request: QueuedDeviceRequest) {
+        val (deviceToken, requestHeaders) = account.requestCredentials(request.scope)
+        val body = JSONObject().put("device_token", deviceToken).put("request_reason", request.reason)
+            .put("client_request_id", request.id)
+        when (request.kind) {
+            QueuedDeviceRequest.Kind.SITE -> rpc("yd_request_site_change",
+                body.put("site_url", request.target).put("requested_allowed", request.allowed), requestHeaders)
+            QueuedDeviceRequest.Kind.APP -> rpc("yd_request_app_access",
+                body.put("package_name", request.target), requestHeaders)
+        }
     }
 
     internal suspend fun devicePolicy(device: Pair<String, String>): DevicePolicy =
@@ -59,8 +66,8 @@ class MdmService(context: Context) {
         return JSONObject().put("device_token", account.deviceCredential()!!.second)
     }
 
-    private suspend fun rpc(name: String, input: JSONObject): JSONArray = withContext(Dispatchers.IO) {
-        val accountHeaders = account.requestHeaders()
+    private suspend fun rpc(name: String, input: JSONObject, headers: Map<String, String>? = null): JSONArray = withContext(Dispatchers.IO) {
+        val accountHeaders = headers ?: account.requestHeaders()
         val connection = URL("$SERVICE/rest/v1/rpc/$name").openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"
@@ -81,6 +88,8 @@ class MdmService(context: Context) {
                 }
                 val reason = runCatching { JSONObject(errorResponse.orEmpty()).optString("message") }.getOrNull()
                 error(when {
+                    reason in setOf("INVALID_APP_REQUEST", "INVALID_SITE_REQUEST", "SITE_REQUEST_LIMIT", "APP_REQUEST_LIMIT") ->
+                        requireNotNull(reason)
                     status == 404 -> "SERVICE_NOT_READY"
                     status == 401 || status == 403 || reason == "APP_ACCESS_DENIED" -> "APP_ACCESS_DENIED"
                     else -> "SERVICE_ERROR"

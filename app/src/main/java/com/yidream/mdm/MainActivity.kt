@@ -13,8 +13,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.io.Closeable
 import java.io.File
 
 class MainActivity : AppCompatActivity() {
@@ -29,6 +32,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var accountClient: AppAccountClient
     private lateinit var accountGate: AccountGateController
     private var mainVisible = false
+    private var usbConfigurationImported = false
+    private var connectivityObserver: Closeable? = null
+    private var lastNetworkOnline: Boolean? = null
+    private var offlineExpiry: Job? = null
     private var restoredTab: String? = null
     private var restoredSettingsPage: String? = null
     private var navigationBackCallback: OnBackPressedCallback? = null
@@ -46,12 +53,37 @@ class MainActivity : AppCompatActivity() {
         // Device Owner filtering and its configuration remain independent from account sign-in.
         importWebAdbConfigIfPresent()
         accountClient = AppAccountDependencies.factory(this)
-        accountGate = AccountGateController(this, accountClient) { access -> showWorkspace(access) }
+        accountGate = AccountGateController(this, accountClient,
+            canRecover = {
+                deviceOwnerManager.isDeviceOwner() && deviceOwnerManager.isDebuggingBlocked() &&
+                    unlockManager.hasKeyConfigured()
+            }, recover = ::onRemoveFilterClicked, authenticated = ::showWorkspace)
         accountGate.showLogin()
     }
 
-    private fun showWorkspace(access: AppAccess) {
+    private fun showWorkspace(access: AppAccess, justActivated: Boolean) {
+        if (!access.offline && access.deviceId != null && deviceOwnerManager.isDeviceOwner() &&
+            (justActivated || !usbConfigurationImported)
+        ) {
+            if (unlockManager.hasKeyConfigured() && deviceOwnerManager.finishProvisioning()) {
+                usbConfigurationImported = false
+            } else {
+                Toast.makeText(this, R.string.lockdown_incomplete, Toast.LENGTH_LONG).show()
+            }
+        }
         setContentView(R.layout.activity_main)
+        findViewById<View>(R.id.offlineBanner).visibility = if (access.offline) View.VISIBLE else View.GONE
+        offlineExpiry?.cancel()
+        offlineExpiry = access.offlineUntil?.let { expires ->
+            lifecycleScope.launch {
+                delay((expires - System.currentTimeMillis()).coerceAtLeast(1L))
+                if (mainVisible) {
+                    hideWorkspace()
+                    accountGate.resume(null)
+                }
+            }
+        }
+        OfflineRequests.schedule(applicationContext)
         mainVisible = true
         selectedTab = MainNavigation.restore(restoredTab)
 
@@ -70,9 +102,10 @@ class MainActivity : AppCompatActivity() {
 
         tabs.forEach { (key, view) -> view.setOnClickListener { selectTab(key) } }
 
-        portal = MdmPortalController(this)
+        portal = MdmPortalController(this, access)
         findViewById<View>(R.id.rowPairDevice).setOnClickListener { portal.pair() }
         setupNavigationPreferences()
+        setupQuickSettingsLaunch()
         setupLanguagePicker()
         AdminContactController(this, findViewById<LinearLayout>(R.id.settingsContactContent)).apply {
             bind()
@@ -107,6 +140,7 @@ class MainActivity : AppCompatActivity() {
             AlertDialog.Builder(this).setTitle(R.string.account_logout).setMessage(R.string.account_logout_note)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.account_logout) { _, _ ->
+                    portal.pauseStoreUpdates()
                     mainVisible = false
                     appUpdates.cancel()
                     RemoteDevicePolicy.cancel(applicationContext)
@@ -115,10 +149,12 @@ class MainActivity : AppCompatActivity() {
         }
         selectTab(MainNavigation.restore(restoredTab))
         val currentSettings = settingsMenu
-        appUpdates.checkAvailability { available ->
-            if (mainVisible && settingsMenu === currentSettings) currentSettings.setUpdateAvailable(available)
+        if (!access.offline) {
+            appUpdates.checkAvailability { available ->
+                if (mainVisible && settingsMenu === currentSettings) currentSettings.setUpdateAvailable(available)
+            }
+            RemoteDevicePolicy.start(applicationContext)
         }
-        RemoteDevicePolicy.start(applicationContext)
     }
 
     /** Remove only the former music launcher policy; keep the configured filter and owner. */
@@ -202,6 +238,31 @@ class MainActivity : AppCompatActivity() {
             if (!bottomBar && selectedTab != "home") View.VISIBLE else View.GONE
     }
 
+    private fun setupQuickSettingsLaunch() {
+        val launch = QuickSettingsLaunch(this)
+        val button = findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.quickSettingsLauncher)
+        fun refresh() {
+            button.setText(if (launch.launcherHidden) R.string.quick_settings_restore else R.string.quick_settings_hide)
+        }
+        button.backgroundTintList = null
+        button.supportBackgroundTintList = null
+        refresh()
+        button.setOnClickListener {
+            if (launch.launcherHidden) {
+                launch.restoreLauncher()
+                refresh()
+            } else {
+                button.isEnabled = false
+                launch.requestHide(this) { hidden ->
+                    button.isEnabled = true
+                    refresh()
+                    if (!hidden && !isDestroyed) Toast.makeText(this,
+                        R.string.quick_settings_add_first, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
     // ------------------------------------------------------------------
     // Réglages — langue
     // ------------------------------------------------------------------
@@ -254,9 +315,14 @@ class MainActivity : AppCompatActivity() {
         if (!mainVisible) return
         val statusBanner = findViewById<TextView>(R.id.statusBanner)
         val isOwner = deviceOwnerManager.isDeviceOwner()
-        statusBanner.text = if (isOwner) getString(R.string.status_owner) else getString(R.string.status_not_owner)
+        val isProtected = isOwner && deviceOwnerManager.hasUpdateCompatibleLockdown()
+        statusBanner.setText(when {
+            isProtected -> R.string.status_owner
+            isOwner -> R.string.lockdown_incomplete
+            else -> R.string.status_not_owner
+        })
         findViewById<TextView>(R.id.homeStatus).text = statusBanner.text
-        if (isOwner) {
+        if (isProtected) {
             statusBanner.setBackgroundResource(R.drawable.bg_status_success)
             statusBanner.setTextColor(getColor(R.color.status_success_text))
         } else {
@@ -283,11 +349,30 @@ class MainActivity : AppCompatActivity() {
         if (::accountGate.isInitialized) {
             mainVisible = false
             accountGate.resume(UsbActivation.take())
+            lastNetworkOnline = InternetReachability.isOnline(this)
+            connectivityObserver = InternetReachability.observe(this) { online ->
+                val previous = lastNetworkOnline
+                lastNetworkOnline = online
+                if (previous != null && previous != online) {
+                    hideWorkspace()
+                    accountGate.resume(null)
+                }
+            }
         }
     }
 
     override fun onPause() {
+        connectivityObserver?.close()
+        connectivityObserver = null
         if (::accountGate.isInitialized) accountGate.pause()
+        hideWorkspace()
+        super.onPause()
+    }
+
+    private fun hideWorkspace() {
+        offlineExpiry?.cancel()
+        offlineExpiry = null
+        if (::portal.isInitialized) portal.pauseStoreUpdates()
         RemoteDevicePolicy.pause()
         if (::appUpdates.isInitialized) appUpdates.cancel()
         if (mainVisible) {
@@ -297,7 +382,6 @@ class MainActivity : AppCompatActivity() {
             // Mask the workspace before Android keeps a paused activity or task snapshot.
             accountGate.showLogin()
         }
-        super.onPause()
     }
 
     private fun onRemoveFilterClicked() {
@@ -341,23 +425,28 @@ class MainActivity : AppCompatActivity() {
             .setView(view)
             .setPositiveButton(getString(R.string.about_remove_filter)) { _, _ ->
                 val code = boxes.joinToString("") { it.text.toString() }
-                if (unlockManager.verify(code)) {
-                    removeFilterConfirmed()
-                } else {
-                    Toast.makeText(this, getString(R.string.unlock_invalid), Toast.LENGTH_LONG).show()
+                when (unlockManager.verify(code)) {
+                    UnlockManager.Verification.ACCEPTED -> removeFilterConfirmed()
+                    UnlockManager.Verification.INCORRECT ->
+                        Toast.makeText(this, R.string.unlock_invalid, Toast.LENGTH_LONG).show()
+                    UnlockManager.Verification.LOCKED ->
+                        Toast.makeText(this, R.string.lockdown_retry_code, Toast.LENGTH_LONG).show()
                 }
             }
-            .setNegativeButton("Annuler", null)
+            .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
     private fun removeFilterConfirmed() {
         try {
+            if (!deviceOwnerManager.isDeviceOwner()) return
+            if (::portal.isInitialized) portal.pauseStoreUpdates()
             RemoteDevicePolicy.cancel(applicationContext)
-            stopLockTask()
+            runCatching { stopLockTask() }
             deviceOwnerManager.leaveDedicatedMode()
             deviceOwnerManager.removeBaseRestrictions()
             deviceOwnerManager.dpm.clearDeviceOwnerApp(packageName)
+            if (!mainVisible) accountGate.showLogin()
             Toast.makeText(this, getString(R.string.unlock_success), Toast.LENGTH_LONG).show()
             refreshStatus()
         } catch (e: Exception) {
@@ -372,6 +461,10 @@ class MainActivity : AppCompatActivity() {
     private fun importWebAdbConfigIfPresent() {
         val configFile = File(getExternalFilesDir(null), "yidream_config.json")
         if (!configFile.exists()) return
+        if (deviceOwnerManager.isDebuggingBlocked()) {
+            configFile.delete()
+            return
+        }
 
         try {
             val json = JSONObject(configFile.readText())
@@ -382,6 +475,9 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (deviceOwnerManager.isDeviceOwner()) {
+                json.optString("unlock_intermediate_key", null)?.let {
+                    if (it.isNotBlank()) unlockManager.storeIntermediateKey(it)
+                }
                 deviceOwnerManager.applyCategoryBlocking(
                     blockBrowsers = json.optBoolean("block_browsers", false),
                     blockAi = json.optBoolean("block_ai", false),
@@ -390,10 +486,7 @@ class MainActivity : AppCompatActivity() {
                     extraPackages = extraPackages
                 )
                 deviceOwnerManager.applyBaseRestrictions()
-            }
-
-            json.optString("unlock_intermediate_key", null)?.let {
-                if (it.isNotBlank()) unlockManager.storeIntermediateKey(it)
+                usbConfigurationImported = true
             }
 
             refreshStatus()

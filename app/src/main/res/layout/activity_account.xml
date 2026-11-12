@@ -61,6 +61,10 @@
           android:textAllCaps="false" android:textSize="12sp" android:textColor="@color/accent_blue"
           android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" app:backgroundTint="@null" android:visibility="gone" />
     </LinearLayout>
+    <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountMaintenance" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="16dp" android:minHeight="48dp" android:text="@string/lockdown_admin_recovery"
+        android:textAllCaps="false" android:textSize="13sp" android:textColor="@color/accent_blue" android:visibility="gone"
+        android:background="@drawable/ui_secondary_button" android:backgroundTint="@null" app:backgroundTint="@null" />
     <androidx.appcompat.widget.AppCompatButton android:id="@+id/accountWhatsApp" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginTop="16dp" android:minHeight="52dp" android:text="@string/account_whatsapp"
         android:textAllCaps="false" android:textStyle="bold" android:textSize="13sp" android:textColor="@color/accent_blue"

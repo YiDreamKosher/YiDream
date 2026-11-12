@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_confirmation_required">פֿאַרבינדט זיך מיטן אינטערנעץ צו באַשטעטיקן דעם צוטריט איידער איר נוצט YiDream אָפֿלײַן.</string>
+    <string name="offline_new_app_request">בעטן צו עפֿענען אַן אַפּ</string>
+    <string name="offline_app_request">בקשה צו דערלויבן אַן אַפּ</string>
+    <string name="offline_no_apps">עס זענען נישטאָ קיין פֿאַרשפּאַרטע אינסטאַלירטע אַפּס צו בעטן.</string>
+    <string name="offline_requests_hint">די בקשות ווערן אויטאָמאַטיש געשיקט ווען דער טעלעפֿאָן איז ווידער פֿאַרבונדן.</string>
+    <string name="offline_request_waiting">וואַרט צו ווערן געשיקט</string>
+    <string name="offline_request_failed">דער סערווער האָט אָפּגעזאָגט די בקשה.</string>
+    <string name="offline_discard_request">אַראָפּנעמען די אָפּגעזאָגטע בקשה</string>
+    <string name="offline_queue_full">די ריי איז פֿול. פֿאַרבינדט זיך מיטן אינטערנעץ צו שיקן די בקשות.</string>
+</resources>

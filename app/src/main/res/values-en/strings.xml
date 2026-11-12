@@ -14,7 +14,7 @@
   <string name="settings_checking">Checking…</string>
   <string name="settings_up_to_date">YiDream is up to date.</string>
   <string name="about_title">About</string>
-  <string name="about_filter_info">YiDream restricts this device according to the configuration set by the administrator: blocked app categories, and only the official installation source is allowed to add new apps.</string>
+  <string name="about_filter_info">YiDream applies your administrator’s rules and updates installed apps that are approved for your device.</string>
   <string name="about_contact_label">Contact</string>
   <string name="about_version_label">Version</string>
   <string name="about_remove_filter">Remove filter</string>
@@ -24,7 +24,7 @@
   <string name="unlock_success">✅ Filter removed.</string>
   <string name="home_protection">Device protection</string>
   <string name="home_quick_access">QUICK ACCESS</string>
-  <string name="home_store_description">Discover approved applications</string>
+  <string name="home_store_description">Update approved apps</string>
   <string name="home_settings_description">Language, protection and updates</string>
   <string name="ui_brand_caption">MY SPACE</string>
   <string name="ui_home_title">A clearer space.</string>

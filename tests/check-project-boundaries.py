@@ -2,8 +2,9 @@ from pathlib import Path
 import xml.etree.ElementTree as E
 p=Path(__file__).resolve().parents[1]; n={'a':'http://schemas.android.com/apk/res/android'}; key='{'+n['a']+'}name'
 r=E.parse(p/'app/src/main/AndroidManifest.xml').getroot()
-launchers=[a.attrib[key] for a in r.findall('.//activity') if a.find("intent-filter/category[@a:name='android.intent.category.LAUNCHER']",n) is not None]
-assert launchers==['.MainActivity'],launchers
+launchers=[a for a in r.iter() if a.tag in ('activity','activity-alias') and a.find("intent-filter/category[@a:name='android.intent.category.LAUNCHER']",n) is not None]
+assert [a.attrib[key] for a in launchers]==['.YiDreamLauncher'],launchers
+assert launchers[0].attrib['{'+n['a']+'}targetActivity']=='.MainActivity'
 assert not r.findall(".//category[@a:name='android.intent.category.HOME']",n)
 s=(p/'app/src/main/java/com/yidream/mdm/MainActivity.kt').read_text(); assert all('"'+tab+'" to findViewById' in s for tab in ['home','store','settings','sites'])
 assert 'deviceOwnerManager.leaveDedicatedMode()' in s
@@ -18,7 +19,7 @@ assert 'pageSites' in layout and 'storeContent' in layout and '<WebView' not in 
 assert '@drawable/bg_app_gradient' in layout
 assert '<color name="accent_navy">#0C1C38</color>' in (resources/'values/colors.xml').read_text()
 controller=(p/'app/src/main/java/com/yidream/mdm/MdmPortalController.kt').read_text()
-assert 'service.requestSite' in controller and 'UUID.randomUUID()' in controller
+assert 'OfflineRequests.enqueue' in controller and 'UUID.randomUUID()' in controller
 assert 'portal.refreshStore()' in s and 'portal.refreshSites()' in s
 print('PASS: native store and site requests use the original YiDream palette.')
 

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_confirmation_required">Connect to the internet to confirm this device’s access before using YiDream offline.</string>
+    <string name="offline_new_app_request">Request an app</string>
+    <string name="offline_app_request">Allow app request</string>
+    <string name="offline_no_apps">No blocked installed apps are available to request.</string>
+    <string name="offline_requests_hint">Requests saved here are sent automatically when the phone reconnects.</string>
+    <string name="offline_request_waiting">Waiting to send</string>
+    <string name="offline_request_failed">The server refused this request.</string>
+    <string name="offline_discard_request">Remove failed request</string>
+    <string name="offline_queue_full">The request queue is full. Connect to the internet to send your requests first.</string>
+</resources>

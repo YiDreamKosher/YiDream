@@ -14,7 +14,7 @@
   <string name="settings_checking">Vérification…</string>
   <string name="settings_up_to_date">YiDream est à jour.</string>
   <string name="about_title">À propos</string>
-  <string name="about_filter_info">YiDream restreint cet appareil selon la configuration définie par l\'administrateur : catégories d\'apps bloquées, et seule la source d\'installation officielle est autorisée pour ajouter de nouvelles apps.</string>
+  <string name="about_filter_info">YiDream applique les règles de l’administrateur et met à jour les applications installées et autorisées.</string>
   <string name="about_contact_label">Contact</string>
   <string name="about_version_label">Version</string>
   <string name="about_remove_filter">Supprimer le filtre</string>
@@ -24,7 +24,7 @@
   <string name="unlock_success">✅ Filtre supprimé.</string>
   <string name="home_protection">Protection de l’appareil</string>
   <string name="home_quick_access">ACCÈS RAPIDES</string>
-  <string name="home_store_description">Découvrir les applications autorisées</string>
+  <string name="home_store_description">Mettre à jour les applications autorisées</string>
   <string name="home_settings_description">Langue, protection et mises à jour</string>
   <string name="mdm_pair">Associer à mon administrateur</string>
   <string name="mdm_pair_description">Associez cet appareil avec le code fourni par votre administrateur pour accéder à sa boutique et envoyer vos demandes.</string>
@@ -65,7 +65,6 @@
   <string name="store_update">Mettre à jour</string>
   <string name="store_open">Ouvrir</string>
   <string name="store_install_progress">%1$d/%2$d · %3$s…</string>
-  <string name="store_batch_result">%1$d installation(s) réussie(s), %2$d échec(s).</string>
   <string name="ui_brand_caption">MON ESPACE</string>
   <string name="ui_home_title">Un espace clair.</string>
   <string name="ui_home_accent">À votre mesure.</string>

@@ -1,7 +1,7 @@
 {
-  "versionCode": 20,
-  "versionName": "v6.1.0",
+  "versionCode": 21,
+  "versionName": "v6.2.0",
   "apkUrl": "https://yidreamkosher.github.io/YiDream/admin/yidream.apk",
   "apkSha256": "",
-  "changelog": "Activate an approved phone with an administrator code, entered in the app or sent by USB. Manage application and YiDream browser rules for each device. Request that a website be allowed or blocked."
+  "changelog": "Use an approved phone offline and queue requests to allow websites and apps. Open YiDream from Quick Settings if you hide its launcher icon. Managed phones block ADB and manual APK installation and keep verified updates for YiDream and installed approved apps."
 }

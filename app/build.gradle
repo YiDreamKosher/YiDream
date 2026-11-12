@@ -11,8 +11,8 @@ android {
         applicationId "com.yidream.mdm"
         minSdk 26
         targetSdk 34
-        versionCode 20
-        versionName "v6.1.0"
+        versionCode 21
+        versionName "v6.2.0"
     }
 
     signingConfigs {

@@ -14,7 +14,12 @@ import java.io.File
 
 /** Used for both catalog apps and YiDream itself: a commit is not an install success. */
 internal class PackageSessionInstaller(private val context: Context) {
-    suspend fun install(file: File, expectedPackage: String, expectedVersion: Long): SilentInstaller.Result {
+    suspend fun install(
+        file: File,
+        expectedPackage: String,
+        expectedVersion: Long,
+        authorizeCommit: suspend () -> Boolean = { true }
+    ): SilentInstaller.Result {
         currentCoroutineContext().ensureActive()
         val installer=context.packageManager.packageInstaller
         var sessionId=-1
@@ -23,16 +28,11 @@ internal class PackageSessionInstaller(private val context: Context) {
             val metadata=ApkMetadata(context.packageManager)
             val candidate=metadata.archive(file.absolutePath)
                 ?: return SilentInstaller.Result.Failure("Le fichier APK ne peut pas être lu par Android.")
-            val rejection=ApkInstallPolicy.rejection(expectedPackage, expectedVersion, candidate, metadata.installed(expectedPackage))
-            if(rejection!=null) return SilentInstaller.Result.Failure(when(rejection) {
-                ApkInstallPolicy.Rejection.SIGNATURE_MISMATCH -> "La signature de cet APK est différente de celle de l’application installée. Une mise à jour nécessite la clé de signature d’origine. La configuration existante a été conservée."
-                ApkInstallPolicy.Rejection.WRONG_PACKAGE -> "Cet APK ne correspond pas à l’application attendue."
-                ApkInstallPolicy.Rejection.WRONG_VERSION -> "La version de l’APK ne correspond pas à la mise à jour annoncée."
-                ApkInstallPolicy.Rejection.MISSING_SIGNATURE -> "Impossible de vérifier la signature de l’application."
-                ApkInstallPolicy.Rejection.DOWNGRADE -> "Une version plus récente est déjà installée."
-            })
+            fun rejection() = ApkInstallPolicy.rejection(expectedPackage, expectedVersion, candidate, metadata.installed(expectedPackage))
+            rejection()?.let { return failure(it) }
             val params=PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
             params.setInstallReason(PackageManager.INSTALL_REASON_POLICY)
+            params.setAppPackageName(expectedPackage)
             currentCoroutineContext().ensureActive()
             sessionId=installer.createSession(params)
             installer.openSession(sessionId).use { session ->
@@ -49,6 +49,10 @@ internal class PackageSessionInstaller(private val context: Context) {
                 // Once submitted, Android owns the transaction and may finish even if this
                 // activity pauses. A cancelled download/copy must never reach that boundary.
                 currentCoroutineContext().ensureActive()
+                if (!authorizeCommit() || !DeviceOwnerManager(context).isDeviceOwner()) {
+                    return SilentInstaller.Result.Failure("Cette mise à jour n’est plus autorisée.")
+                }
+                rejection()?.let { return failure(it) }
                 CatalogInstallSessions.pending[sessionId]=completion
                 currentCoroutineContext().ensureActive()
                 session.commit(pending.intentSender)
@@ -68,5 +72,14 @@ internal class PackageSessionInstaller(private val context: Context) {
             if(sessionId>=0&&!submitted)runCatching { installer.abandonSession(sessionId) }
         }
     }
+    private fun failure(rejection: ApkInstallPolicy.Rejection): SilentInstaller.Result.Failure =
+        SilentInstaller.Result.Failure(when (rejection) {
+            ApkInstallPolicy.Rejection.SIGNATURE_MISMATCH -> "La signature de cet APK est différente de celle de l’application installée. Une mise à jour nécessite la clé de signature d’origine. La configuration existante a été conservée."
+            ApkInstallPolicy.Rejection.WRONG_PACKAGE -> "Cet APK ne correspond pas à l’application attendue."
+            ApkInstallPolicy.Rejection.WRONG_VERSION -> "La version de l’APK ne correspond pas à la mise à jour annoncée."
+            ApkInstallPolicy.Rejection.MISSING_SIGNATURE -> "Impossible de vérifier la signature de l’application."
+            ApkInstallPolicy.Rejection.DOWNGRADE -> "Une version plus récente est déjà installée."
+            ApkInstallPolicy.Rejection.NOT_INSTALLED -> "L’application doit déjà être installée pour être mise à jour."
+            ApkInstallPolicy.Rejection.SAME_VERSION -> "Cette version est déjà installée."
+        })
 }
-

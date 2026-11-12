@@ -35,8 +35,11 @@ class ApkInstallPolicyTest {
         assertEquals(ApkInstallPolicy.Rejection.MISSING_SIGNATURE,
             ApkInstallPolicy.rejection(old.packageName, 15, update.copy(signers=emptySet()), null))
     }
-    @Test fun firstInstallIsAllowedAndDowngradeIsRefused() {
-        assertNull(ApkInstallPolicy.rejection(old.packageName, 15, update, null))
+    @Test fun refusesFirstInstallSameVersionAndDowngrade() {
+        assertEquals(ApkInstallPolicy.Rejection.NOT_INSTALLED,
+            ApkInstallPolicy.rejection(old.packageName, 15, update, null))
+        assertEquals(ApkInstallPolicy.Rejection.SAME_VERSION,
+            ApkInstallPolicy.rejection(old.packageName, 15, update, update))
         assertEquals(ApkInstallPolicy.Rejection.DOWNGRADE,
             ApkInstallPolicy.rejection(old.packageName, 12, old, update))
     }

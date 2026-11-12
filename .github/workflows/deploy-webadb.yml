@@ -202,10 +202,12 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: YiDream ${{ needs.build.outputs.version_tag }}
           body: |
-            Activate an approved phone with an administrator code entered in YiDream or sent by USB.
-            The device keeps its assigned ID and synchronizes individual app and YiDream site rules.
-            Request a site to be allowed or blocked from the Sites screen.
-            This release requires the matching YiDream Suite device policy migration.
+            Previously approved phones can open YiDream offline and queue website and app access requests.
+            An optional Quick Settings tile can replace the home screen launcher icon.
+            YiDream disables USB and Wi-Fi debugging after authorized device activation.
+            Managed phones block manual APK installation and hide detected app stores.
+            YiDream can update itself and already installed approved apps through the verified update channels.
+            If the previous filter prevents the first upgrade, use administrator filter removal and prepare the phone again in WebADB.
           files: release/yidream.apk
           fail_on_unmatched_files: true
         env:
