@@ -17,6 +17,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.Instant
 
 internal data class DeviceRequestScope(val accountId: String, val deviceId: String)
 
@@ -27,19 +28,31 @@ internal data class QueuedDeviceRequest(
     val reason: String,
     val kind: Kind,
     val allowed: Boolean = true,
-    val failed: Boolean = false
+    val failed: Boolean = false,
+    val requestedHours: Int? = null,
+    val requestedUntil: Instant? = null
 ) {
     enum class Kind { SITE, APP }
+
+    init {
+        if (requestedHours != null || requestedUntil != null) {
+            require(kind == Kind.SITE && allowed && (requestedHours == null) != (requestedUntil == null))
+            require(requestedHours == null || requestedHours == 24)
+        }
+    }
 
     fun toJson(): JSONObject = JSONObject().put("account", scope.accountId).put("device", scope.deviceId)
         .put("id", id).put("target", target).put("reason", reason).put("kind", kind.name)
         .put("allowed", allowed).put("failed", failed)
+        .put("requested_hours", requestedHours).put("requested_until", requestedUntil?.toString())
 
     companion object {
         fun read(value: JSONObject): QueuedDeviceRequest = QueuedDeviceRequest(
             DeviceRequestScope(value.getString("account"), value.getString("device")),
             value.getString("id"), value.getString("target"), value.getString("reason"),
-            Kind.valueOf(value.getString("kind")), value.getBoolean("allowed"), value.getBoolean("failed")
+            Kind.valueOf(value.getString("kind")), value.getBoolean("allowed"), value.getBoolean("failed"),
+            requestedHours = if (value.isNull("requested_hours")) null else value.getInt("requested_hours"),
+            requestedUntil = if (value.isNull("requested_until")) null else Instant.parse(value.getString("requested_until"))
         )
     }
 }
@@ -151,7 +164,8 @@ internal object OfflineRequests {
                 throw error
             } catch (error: Exception) {
                 when (error.message) {
-                    "INVALID_APP_REQUEST", "INVALID_SITE_REQUEST", "INVALID_SITE" ->
+                    "INVALID_APP_REQUEST", "INVALID_SITE_REQUEST", "INVALID_SITE",
+                    "INVALID_SITE_WINDOW", "SITE_WINDOW_EXPIRED" ->
                         update(request, request.copy(failed = true))
                     "SITE_REQUEST_LIMIT", "APP_REQUEST_LIMIT" -> retry = true
                     "APP_ACCESS_DENIED" -> { denied(); return true }

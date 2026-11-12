@@ -61,6 +61,22 @@ class OfflineRequestsTest {
         assertEquals(listOf(site.id, site.id), sentIds)
     }
 
+    @Test fun temporarySiteRequestKeepsItsDeadlineAndStopsRetryingWhenExpired() = runBlocking {
+        val until = Instant.parse("2026-11-12T12:00:00Z")
+        val request = QueuedDeviceRequest(scope, UUID.randomUUID().toString(), "https://example.org/", "",
+            QueuedDeviceRequest.Kind.SITE, requestedUntil = until)
+        val restored = QueuedDeviceRequest.read(JSONObject(request.toJson().toString()))
+        assertEquals(request, restored)
+        val duration = request.copy(requestedUntil = null, requestedHours = 24)
+        assertEquals(duration, QueuedDeviceRequest.read(JSONObject(duration.toJson().toString())))
+        var failed: QueuedDeviceRequest? = null
+        assertTrue(OfflineRequests.dispatchPending(listOf(restored), { sent ->
+            assertEquals(request.id, sent.id)
+            error("INVALID_SITE_WINDOW")
+        }, { _, replacement -> failed = replacement }, {}))
+        assertEquals(request.copy(failed = true), failed)
+    }
+
     @Test fun explicitDenialStopsRemainingRequests() = runBlocking {
         val app = QueuedDeviceRequest(scope, UUID.randomUUID().toString(), "com.example.app", "",
             QueuedDeviceRequest.Kind.APP)

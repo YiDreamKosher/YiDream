@@ -6,6 +6,12 @@ Plateforme de gestion d'appareils Android filtrés. Ce dépôt contient l'app An
 
 YiDream ouvre les onglets Accueil, Boutique, Sites et Réglages pour gérer les applications et les demandes de sites. Les informations de version et d’utilisation se trouvent dans Réglages. Le launcher musical est un projet distinct : [YZ MDM](https://github.com/YiDreamKosher/YZ-MDM). YiDream ne remplace pas l’écran d’accueil Android.
 
+## Temporary site access (v6.3.0, Android version code 22)
+
+When requesting a site, select ongoing access, 24 hours after approval, or a specific trip end date and time. The administrator approves the requested window, and the YiDream reader applies the temporary rule until its expiry. The device evaluates the saved expiry while offline. Permanent site rules resume after a temporary window ends.
+
+Administrators can save an account without an assigned phone, then use the configured device ID to generate its activation code. A pending code does not change the phone's account until it is redeemed.
+
 ## Offline access and authorized updates (v6.2.0, Android version code 21)
 
 Previously approved phones can open the workspace offline for up to seven days, within their approved session's expiry. Requests to open websites and installed applications are queued on the phone and submitted when connectivity returns. An administrator reviews them in Suite. A confirmed denial is never accepted as an offline session.

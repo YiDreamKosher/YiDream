@@ -31,18 +31,26 @@ class MdmService(context: Context) {
         val body = JSONObject().put("device_token", deviceToken).put("request_reason", request.reason)
             .put("client_request_id", request.id)
         when (request.kind) {
-            QueuedDeviceRequest.Kind.SITE -> rpc("yd_request_site_change",
-                body.put("site_url", request.target).put("requested_allowed", request.allowed), requestHeaders)
+            QueuedDeviceRequest.Kind.SITE -> {
+                body.put("site_url", request.target)
+                if (request.requestedHours != null || request.requestedUntil != null) {
+                    rpc("yd_request_site_window", body
+                        .put("requested_hours", request.requestedHours ?: JSONObject.NULL)
+                        .put("requested_until", request.requestedUntil?.toString() ?: JSONObject.NULL), requestHeaders)
+                } else {
+                    rpc("yd_request_site_change", body.put("requested_allowed", request.allowed), requestHeaders)
+                }
+            }
             QueuedDeviceRequest.Kind.APP -> rpc("yd_request_app_access",
                 body.put("package_name", request.target), requestHeaders)
         }
     }
 
     internal suspend fun devicePolicy(device: Pair<String, String>): DevicePolicy =
-        DevicePolicy.parse(rpc("yd_get_device_policy", policyCredential(device)).getJSONObject(0))
+        DevicePolicy.parse(rpc("yd_get_device_policy_v2", policyCredential(device)).getJSONObject(0), requireWindows = true)
 
     internal suspend fun reportPolicy(device: Pair<String, String>, revision: Long, applied: Boolean) {
-        rpc("yd_report_device_policy", policyCredential(device)
+        rpc("yd_report_device_policy_v2", policyCredential(device)
             .put("policy_revision", revision).put("applied", applied))
     }
 
@@ -88,7 +96,8 @@ class MdmService(context: Context) {
                 }
                 val reason = runCatching { JSONObject(errorResponse.orEmpty()).optString("message") }.getOrNull()
                 error(when {
-                    reason in setOf("INVALID_APP_REQUEST", "INVALID_SITE_REQUEST", "SITE_REQUEST_LIMIT", "APP_REQUEST_LIMIT") ->
+                    reason in setOf("INVALID_APP_REQUEST", "INVALID_SITE_REQUEST", "INVALID_SITE_WINDOW",
+                        "SITE_WINDOW_EXPIRED", "SITE_REQUEST_LIMIT", "APP_REQUEST_LIMIT") ->
                         requireNotNull(reason)
                     status == 404 -> "SERVICE_NOT_READY"
                     status == 401 || status == 403 || reason == "APP_ACCESS_DENIED" -> "APP_ACCESS_DENIED"

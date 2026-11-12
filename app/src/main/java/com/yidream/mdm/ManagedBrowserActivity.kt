@@ -21,6 +21,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.ByteArrayInputStream
 import java.net.URI
+import java.time.Duration
 
 /** This activity has no exported entry point and cannot access pages outside the device's allowlist. */
 class ManagedBrowserActivity : AppCompatActivity() {
@@ -31,6 +32,7 @@ class ManagedBrowserActivity : AppCompatActivity() {
     @Volatile private var policy: DevicePolicy? = null
     private var poll: Job? = null
     private var pageLoad: Job? = null
+    private var pageExpiry: Job? = null
     private var currentPage: URI? = null
     private var initialAddress: String? = null
 
@@ -71,6 +73,7 @@ class ManagedBrowserActivity : AppCompatActivity() {
         }
         layout.addView(status)
         reader = WebView(this).apply {
+            visibility = View.INVISIBLE
             settings.javaScriptEnabled = false
             settings.domStorageEnabled = false
             settings.allowFileAccess = false
@@ -106,9 +109,8 @@ class ManagedBrowserActivity : AppCompatActivity() {
                         val first = policy == null
                         policy = result.policy
                         open.isEnabled = true
-                        if (currentPage?.let { result.policy.permits(it) } == false) {
-                            clearPage()
-                            status.setText(R.string.managed_sites_blocked)
+                        if (currentPage != null) {
+                            watchPageExpiry()
                         } else if (first) {
                             status.setText(R.string.managed_sites_limits)
                             initialAddress?.let {
@@ -138,7 +140,7 @@ class ManagedBrowserActivity : AppCompatActivity() {
             status.setText(R.string.managed_sites_blocked)
             return
         }
-        pageLoad?.cancel()
+        clearPage()
         status.setText(R.string.mdm_loading)
         address.setText(selected.toASCIIString())
         pageLoad = lifecycleScope.launch {
@@ -152,7 +154,8 @@ class ManagedBrowserActivity : AppCompatActivity() {
                 currentPage = page.address
                 address.setText(page.address.toASCIIString())
                 reader.loadDataWithBaseURL(page.address.toASCIIString(), page.html, "text/html", "UTF-8", null)
-                status.setText(R.string.managed_sites_limits)
+                reader.visibility = View.VISIBLE
+                watchPageExpiry()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -166,10 +169,36 @@ class ManagedBrowserActivity : AppCompatActivity() {
         }
     }
 
+    private fun watchPageExpiry(afterDeadline: Boolean = false) {
+        pageExpiry?.cancel()
+        pageExpiry = null
+        val page = currentPage ?: return
+        val active = policy ?: return
+        val access = active.siteAccess(page)
+        if (!access.allowed) {
+            clearPage()
+            status.setText(if (afterDeadline) R.string.site_window_expired else R.string.managed_sites_blocked)
+            return
+        }
+        val deadline = access.expiresAt
+        if (deadline == null) {
+            status.setText(R.string.managed_sites_limits)
+            return
+        }
+        status.text = getString(R.string.site_window_allowed_until, formatSiteWindowTime(this, deadline))
+        pageExpiry = lifecycleScope.launch {
+            delay(Duration.between(active.currentTime(), deadline).toMillis().coerceAtLeast(1L))
+            watchPageExpiry(afterDeadline = true)
+        }
+    }
+
     private fun clearPage() {
+        pageExpiry?.cancel()
+        pageExpiry = null
         pageLoad?.cancel()
         pageLoad = null
         currentPage = null
+        reader.visibility = View.INVISIBLE
         reader.stopLoading()
         reader.loadUrl("about:blank")
         reader.clearHistory()

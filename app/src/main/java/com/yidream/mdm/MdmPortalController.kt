@@ -1,16 +1,23 @@
 package com.yidream.mdm
 
 import android.app.AlertDialog
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.text.InputFilter
 import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
@@ -20,6 +27,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.UUID
 import org.json.JSONObject
 
@@ -123,7 +134,7 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
                 for (request in pending) {
                     val name = if (request.kind == QueuedDeviceRequest.Kind.APP) appLabel(request.target) else request.target
                     val status = text(if (request.failed) R.string.offline_request_failed else R.string.offline_request_waiting)
-                    label(content, "$name\n$status")
+                    label(content, listOfNotNull(name, status, requestedWindow(request.requestedHours, request.requestedUntil)).joinToString("\n"))
                     if (request.failed) action(content, text(R.string.offline_discard_request), true) {
                         activity.lifecycleScope.launch {
                             withContext(Dispatchers.IO) { OfflineRequests.discard(activity, request) }
@@ -164,6 +175,18 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
             if (current()) action(content, text(R.string.mdm_refresh), true) { refreshSites() }
         }
     }
+
+    private fun requestTime(item: JSONObject, field: String): Instant? =
+        if (item.isNull(field)) null else runCatching { parseSiteWindowTime(item.getString(field)) }.getOrNull()
+
+    private fun requestedWindow(hours: Int?, until: Instant?): String? = when {
+        hours == 24 -> text(R.string.site_window_requested_24h)
+        until != null -> activity.getString(R.string.site_window_requested_until, formatSiteWindowTime(activity, until))
+        else -> null
+    }
+
+    private fun expired(item: JSONObject, now: Instant): Boolean =
+        item.getString("status") == "approved" && requestTime(item, "allowed_until")?.let { it <= now } == true
 
     private fun status(item: JSONObject): String = text(when (item.getString("status")) {
         "approved" -> R.string.mdm_approved
@@ -226,14 +249,30 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
             textSize = 13f
             setTextColor(activity.getColor(R.color.text_secondary))
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
-        val state = item.getString("status")
-        val ink = when (state) { "approved" -> 0xFF21704F.toInt(); "rejected" -> 0xFFAD4C49.toInt(); "revoked" -> 0xFF8C5A10.toInt(); else -> activity.getColor(R.color.accent_blue) }
-        val fill = when (state) { "approved" -> 0xFFEAF7F0.toInt(); "rejected" -> 0xFFFFF0EF.toInt(); "revoked" -> 0xFFFFF4DF.toInt(); else -> activity.getColor(R.color.accent_blue_soft) }
+        val until = requestTime(item, "allowed_until")
+        val isExpired = expired(item, policy?.currentTime() ?: Instant.now())
+        val state = if (isExpired) "expired" else item.getString("status")
+        val ink = when (state) { "approved" -> 0xFF21704F.toInt(); "rejected" -> 0xFFAD4C49.toInt(); "revoked", "expired" -> 0xFF8C5A10.toInt(); else -> activity.getColor(R.color.accent_blue) }
+        val fill = when (state) { "approved" -> 0xFFEAF7F0.toInt(); "rejected" -> 0xFFFFF0EF.toInt(); "revoked", "expired" -> 0xFFFFF4DF.toInt(); else -> activity.getColor(R.color.accent_blue_soft) }
         card.addView(TextView(activity).apply {
-            text = status; textSize = 11f; setTextColor(ink); setTypeface(typeface, Typeface.BOLD)
+            text = if (isExpired) text(R.string.site_window_expired) else status; textSize = 11f; setTextColor(ink); setTypeface(typeface, Typeface.BOLD)
             setPadding(dp(10), dp(7), dp(10), dp(7)); gravity = Gravity.CENTER_VERTICAL
             background = GradientDrawable().apply { setColor(fill); cornerRadius = dp(12).toFloat() }
         }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(12) })
+        val requested = requestedWindow(item.optInt("requested_hours").takeIf { it == 24 }, requestTime(item, "requested_until"))
+        val approved = until?.let {
+            activity.getString(
+                if (state == "approved") R.string.site_window_allowed_until else R.string.site_window_previously_allowed_until,
+                formatSiteWindowTime(activity, it)
+            )
+        }
+        for (detail in listOfNotNull(requested, approved)) {
+            card.addView(TextView(activity).apply {
+                text = detail
+                textSize = 13f
+                setTextColor(activity.getColor(R.color.text_secondary))
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+        }
         item.optString("admin_note").takeIf { it.isNotBlank() }?.let { note ->
             card.addView(TextView(activity).apply {
                 text = note; textSize = 13f; setTextColor(activity.getColor(R.color.text_secondary))
@@ -253,6 +292,28 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
         })
     }
 
+    private fun chooseSiteWindowEnd(previous: Instant?, onChoose: (Instant) -> Unit) {
+        val zone = ZoneId.systemDefault()
+        val now = Instant.now()
+        val initial = (previous?.takeIf { it > now } ?: now.plus(Duration.ofDays(1))).atZone(zone)
+        val datePicker = DatePickerDialog(activity, { _, year, month, day ->
+            TimePickerDialog(activity, { _, hour, minute ->
+                val local = LocalDateTime.of(year, month + 1, day, hour, minute)
+                val chosen = zone.rules.getValidOffsets(local).firstOrNull()?.let { local.toInstant(it) }
+                if (chosen != null && validSiteWindowEnd(chosen)) onChoose(chosen)
+                else Toast.makeText(activity, R.string.site_window_invalid_date, Toast.LENGTH_LONG).show()
+            }, initial.hour, initial.minute, android.text.format.DateFormat.is24HourFormat(activity)).show()
+        }, initial.year, initial.monthValue - 1, initial.dayOfMonth)
+        datePicker.datePicker.minDate = now.toEpochMilli()
+        datePicker.datePicker.maxDate = now.plus(Duration.ofDays(365)).toEpochMilli()
+        datePicker.show()
+    }
+
+    private fun validSiteWindowEnd(time: Instant): Boolean {
+        val now = Instant.now()
+        return time > now && time <= now.plus(Duration.ofDays(365))
+    }
+
     private fun requestDialog(app: String? = null, appName: String? = null) {
         val scope = access?.scope() ?: return
         val form = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
@@ -263,13 +324,49 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
             styleInput(this)
         }
         val blockSite = CheckBox(activity).apply { setText(R.string.managed_sites_block_option) }
+        var windowEnd: Instant? = null
+        val duration = Spinner(activity).apply {
+            id = View.generateViewId()
+            val options = listOf(R.string.site_window_permanent, R.string.site_window_24h, R.string.site_window_trip)
+            adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, options.map(::text)).apply {
+                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            minimumHeight = dp(48)
+        }
         if (app == null) {
             form.addView(address)
             form.addView(blockSite)
+            val windowControls = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+            form.addView(windowControls)
+            windowControls.addView(TextView(activity).apply {
+                setText(R.string.site_window_duration)
+                labelFor = duration.id
+            })
+            windowControls.addView(duration)
+            lateinit var selectDate: Button
+            selectDate = action(windowControls, text(R.string.site_window_pick_date), true) {
+                chooseSiteWindowEnd(windowEnd) {
+                    windowEnd = it
+                    selectDate.text = formatSiteWindowTime(activity, it)
+                }
+            }
+            selectDate.visibility = View.GONE
+            duration.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    selectDate.visibility = if (position == 2) View.VISIBLE else View.GONE
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) {
+                    selectDate.visibility = View.GONE
+                }
+            }
+            blockSite.setOnCheckedChangeListener { _, checked ->
+                windowControls.visibility = if (checked) View.GONE else View.VISIBLE
+            }
         }
         form.addView(reason, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
         val requestId = UUID.randomUUID().toString()
-        val dialog = AlertDialog.Builder(activity).setTitle(appName ?: text(R.string.managed_sites_new_request)).setView(form)
+        val dialog = AlertDialog.Builder(activity).setTitle(appName ?: text(R.string.managed_sites_new_request))
+            .setView(ScrollView(activity).apply { addView(form) })
             .setPositiveButton(R.string.mdm_send, null).setNegativeButton(android.R.string.cancel, null).create()
         dialog.setOnShowListener {
             val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
@@ -279,9 +376,15 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
                     address.error = text(R.string.mdm_invalid_site)
                     return@setOnClickListener
                 }
+                val mode = if (app == null && !blockSite.isChecked) duration.selectedItemPosition else 0
+                val until = windowEnd.takeIf { mode == 2 }
+                if (mode == 2 && (until == null || !validSiteWindowEnd(until))) {
+                    Toast.makeText(activity, R.string.site_window_invalid_date, Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
                 val request = QueuedDeviceRequest(scope, requestId, target, reason.text.toString().trim(),
                     if (app == null) QueuedDeviceRequest.Kind.SITE else QueuedDeviceRequest.Kind.APP,
-                    allowed = !blockSite.isChecked)
+                    allowed = !blockSite.isChecked, requestedHours = 24.takeIf { mode == 1 }, requestedUntil = until)
                 button.isEnabled = false
                 activity.lifecycleScope.launch {
                     try {

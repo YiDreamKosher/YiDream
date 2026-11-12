@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="site_window_duration">צייט פון צוטריט</string>
+    <string name="site_window_permanent">צוטריט אָן אַ סוף־דאַטע</string>
+    <string name="site_window_24h">24 שעה נאָך דער באשטעטיקונג</string>
+    <string name="site_window_trip">ביזן סוף פון מיין רייזע</string>
+    <string name="site_window_pick_date">קלייבט אַ דאַטע און צייט</string>
+    <string name="site_window_invalid_date">קלייבט אַ גילטיקע דאַטע און צייט אין די קומענדיקע 365 טעג.</string>
+    <string name="site_window_requested_24h">געבעטן אויף 24 שעה נאָך דער באשטעטיקונג</string>
+    <string name="site_window_requested_until">געבעטן ביז %1$s</string>
+    <string name="site_window_allowed_until">צוטריט ערלויבט ביז %1$s</string>
+    <string name="site_window_previously_allowed_until">דער צוטריט איז באשטעטיקט געוואָרן ביז %1$s</string>
+    <string name="site_window_expired">דער צייטווייליקער צוטריט איז אויסגעלאָפן</string>
+</resources>

@@ -155,7 +155,8 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
                 expiry
             } else {
                 // Existing email sessions can continue only on their own previously approved phone.
-                request("/rest/v1/rpc/yd_get_device_policy", JSONObject().put("device_token", deviceToken), headers(session))
+                request("/rest/v1/rpc/yd_get_device_policy", JSONObject().put("device_token", deviceToken),
+                    headers(session), maxResponseChars = 128 * 1024)
                 null
             }
             val bound = access.copy(deviceId = deviceId)
@@ -269,7 +270,10 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
         if (id.isNotBlank() && token.isNotBlank()) id to token else null
     }
 
-    private suspend fun request(path: String, body: JSONObject, extraHeaders: Map<String, String> = emptyMap()): JSONObject = withContext(Dispatchers.IO) {
+    private suspend fun request(
+        path: String, body: JSONObject, extraHeaders: Map<String, String> = emptyMap(),
+        maxResponseChars: Int = 32 * 1024
+    ): JSONObject = withContext(Dispatchers.IO) {
         val connection = URL(SERVICE + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"; connection.instanceFollowRedirects = false
@@ -281,14 +285,14 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val response = stream?.bufferedReader()?.use { reader ->
-                val buffer = CharArray(32769)
+                val buffer = CharArray(maxResponseChars + 1)
                 var length = 0
                 while (length < buffer.size) {
                     val count = reader.read(buffer, length, buffer.size - length)
                     if (count == -1) break
                     length += count
                 }
-                check(length <= 32768) { "RESPONSE_TOO_LARGE" }
+                check(length <= maxResponseChars) { "RESPONSE_TOO_LARGE" }
                 String(buffer, 0, length)
             }.orEmpty()
             if (status !in 200..299) {

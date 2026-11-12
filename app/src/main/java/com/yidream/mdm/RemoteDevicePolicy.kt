@@ -6,6 +6,7 @@ import android.app.job.JobScheduler
 import android.app.job.JobService
 import android.content.ComponentName
 import android.content.Context
+import android.os.SystemClock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,25 +22,39 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URI
+import java.security.MessageDigest
+import java.time.Instant
 import java.util.Locale
 
 internal data class DevicePolicy(
     val revision: Long,
     val apps: Map<String, Boolean>,
-    val sites: Map<String, Boolean>
+    val sites: Map<String, Boolean>,
+    val temporarySites: Map<String, Instant> = emptyMap()
 ) {
-    fun permits(address: URI): Boolean {
-        if (!isWebAddress(address)) return false
+    data class SiteAccess(val allowed: Boolean, val expiresAt: Instant? = null)
+
+    private var timeAtFetch = Instant.now()
+    private val elapsedAtFetch = SystemClock.elapsedRealtime()
+
+    fun currentTime(): Instant = timeAtFetch.plusMillis((SystemClock.elapsedRealtime() - elapsedAtFetch).coerceAtLeast(0))
+
+    fun permits(address: URI): Boolean = siteAccess(address).allowed
+
+    fun siteAccess(address: URI, now: Instant = currentTime()): SiteAccess {
+        if (!isWebAddress(address)) return SiteAccess(false)
         var host = address.host.lowercase(Locale.ROOT)
         while (true) {
-            sites[host]?.let { return it }
-            if (!host.contains('.')) return false
+            temporarySites[host]?.takeIf { it > now }?.let { return SiteAccess(true, it) }
+            sites[host]?.let { return SiteAccess(it) }
+            if (!host.contains('.')) return SiteAccess(false)
             host = host.substringAfter('.')
         }
     }
 
     fun toJson(): JSONObject = JSONObject()
         .put("revision", revision).put("apps", JSONObject(apps)).put("sites", JSONObject(sites))
+        .put("temporary_sites", JSONObject(temporarySites.mapValues { it.value.toString() }))
 
     companion object {
         private val packageName = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
@@ -59,7 +74,7 @@ internal data class DevicePolicy(
                 address.port in listOf(-1, 443) && validHost(host) && address.toASCIIString().length <= 2048
         }
 
-        fun parse(value: JSONObject): DevicePolicy {
+        fun parse(value: JSONObject, requireWindows: Boolean = false): DevicePolicy {
             val revision = when (val number = value.get("revision")) {
                 is Int -> number.toLong()
                 is Long -> number
@@ -74,7 +89,18 @@ internal data class DevicePolicy(
                     objectRules.get(key) as? Boolean ?: error("INVALID_POLICY")
                 }
             }
-            return DevicePolicy(revision, rules("apps", 100, ::validPackageName), rules("sites", 200, ::validHost))
+            val windows = if (requireWindows) value.getJSONObject("temporary_sites")
+                else value.optJSONObject("temporary_sites") ?: JSONObject()
+            require(windows.length() <= 1000)
+            val temporarySites = windows.keys().asSequence().associateWith { host ->
+                require(validHost(host))
+                parseSiteWindowTime(windows.getString(host))
+            }
+            require(!value.isNull("server_time") || (!requireWindows && temporarySites.isEmpty()))
+            val serverTime = if (value.isNull("server_time")) Instant.now()
+                else parseSiteWindowTime(value.getString("server_time"))
+            return DevicePolicy(revision, rules("apps", 100, ::validPackageName),
+                rules("sites", 200, ::validHost), temporarySites).apply { timeAtFetch = serverTime }
         }
     }
 }
@@ -94,16 +120,27 @@ internal object RemoteDevicePolicy {
     private val mutex = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var foreground: Job? = null
+    @Volatile private var latest: Pair<String, DevicePolicy>? = null
 
     private fun preferences(context: Context) =
         context.getSharedPreferences("yidream_device_policy", Context.MODE_PRIVATE)
 
     fun current(context: Context): DevicePolicy? {
         val device = MdmService(context).deviceCredential() ?: return null
+        val credential = credentialHash(device.second)
+        latest?.takeIf { it.first == credential }?.let { return it.second }
         val cached = preferences(context)
-        if (cached.getString("device", null) != device.first) return null
-        return runCatching { DevicePolicy.parse(JSONObject(cached.getString("policy", null) ?: return null)) }.getOrNull()
+        if (cached.getInt("format", 0) != 2 || cached.getString("device", null) != device.first ||
+            cached.getString("credential", null) != credential) return null
+        // The persisted snapshot helps show base rules. Only a live policy has a trusted clock for temporary access.
+        return runCatching {
+            DevicePolicy.parse(JSONObject(cached.getString("policy", null) ?: return null))
+                .copy(temporarySites = emptyMap())
+        }.getOrNull()
     }
+
+    private fun credentialHash(token: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(token.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
     fun start(context: Context) {
         val app = context.applicationContext
@@ -133,6 +170,7 @@ internal object RemoteDevicePolicy {
 
     fun cancel(context: Context) {
         pause()
+        latest = null
         context.getSystemService(JobScheduler::class.java)?.cancel(JOB_ID)
     }
 
@@ -162,9 +200,12 @@ internal object RemoteDevicePolicy {
             if (service.deviceCredential() != device || !owner.isDeviceOwner()) return PolicySync.NotEnrolled
             // Commit locally before acknowledging. A failed acknowledgement is retried on the next sync.
             val stored = preferences(context).edit()
+                .putInt("format", 2)
                 .putString("device", device.first)
-                .putString("policy", policy.toJson().toString())
+                .putString("credential", credentialHash(device.second))
+                .putString("policy", policy.copy(temporarySites = emptyMap()).toJson().toString())
                 .commit()
+            if (stored) latest = credentialHash(device.second) to policy
             try {
                 service.reportPolicy(device, policy.revision, applied && stored)
             } catch (error: Exception) {
