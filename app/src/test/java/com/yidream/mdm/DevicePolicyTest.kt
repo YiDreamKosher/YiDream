@@ -3,6 +3,7 @@ package com.yidream.mdm
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -72,6 +73,25 @@ class DevicePolicyTest {
         assertTrue(policy.permits(URI("https://example.org/")))
         value.remove("server_time")
         assertTrue(runCatching { DevicePolicy.parse(value, requireWindows = true) }.isFailure)
+    }
+
+    @Test
+    fun savedWindowsRetainServerDeadlineOnlyOnTheSameBoot() {
+        val address = URI("https://trip.example.org/")
+        val value = JSONObject("""{
+            "revision":4,"apps":{},"sites":{},"server_time":"2026-11-12T11:00:00Z",
+            "temporary_sites":{"trip.example.org":"2026-11-12T11:00:10Z"}
+        }""")
+        val elapsedAtFetch = 1_000L
+        val beforeExpiry = 10_999L
+        val atExpiry = 11_000L
+        val stored = DevicePolicy.parse(value, requireWindows = true, elapsedAtFetch = elapsedAtFetch).toBootCache(4)
+        val restored = requireNotNull(DevicePolicy.restoreBootCache(stored, 4, beforeExpiry))
+        assertTrue(restored.siteAccess(address, restored.currentTime(beforeExpiry)).allowed)
+        assertFalse(restored.siteAccess(address, restored.currentTime(atExpiry)).allowed)
+        assertNull(DevicePolicy.restoreBootCache(stored, 5, beforeExpiry))
+        assertNull(DevicePolicy.restoreBootCache(stored, -1, beforeExpiry))
+        assertNull(DevicePolicy.restoreBootCache(stored, 4, elapsedAtFetch - 1))
     }
 
     @Test

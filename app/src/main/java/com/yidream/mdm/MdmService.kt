@@ -1,6 +1,7 @@
 package com.yidream.mdm
 
 import android.content.Context
+import android.os.SystemClock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -46,12 +47,17 @@ class MdmService(context: Context) {
         }
     }
 
-    internal suspend fun devicePolicy(device: Pair<String, String>): DevicePolicy =
-        DevicePolicy.parse(rpc("yd_get_device_policy_v2", policyCredential(device)).getJSONObject(0), requireWindows = true)
+    internal suspend fun devicePolicy(device: Pair<String, String>): DevicePolicy {
+        val requestStart = SystemClock.elapsedRealtime()
+        val result = rpc("yd_get_device_policy_v2", policyCredential(device)).getJSONObject(0)
+        return DevicePolicy.parse(result, requireWindows = true, elapsedAtFetch = requestStart)
+    }
 
-    internal suspend fun reportPolicy(device: Pair<String, String>, revision: Long, applied: Boolean) {
-        rpc("yd_report_device_policy_v2", policyCredential(device)
-            .put("policy_revision", revision).put("applied", applied))
+    internal suspend fun reportPolicy(device: Pair<String, String>, revision: Long, applied: Boolean): DevicePolicy {
+        val requestStart = SystemClock.elapsedRealtime()
+        val result = rpc("yd_report_device_policy_v2", policyCredential(device)
+            .put("policy_revision", revision).put("applied", applied)).getJSONObject(0)
+        return DevicePolicy.parse(result, requireWindows = true, elapsedAtFetch = requestStart)
     }
 
     private fun policyCredential(device: Pair<String, String>): JSONObject {
@@ -99,8 +105,9 @@ class MdmService(context: Context) {
                     reason in setOf("INVALID_APP_REQUEST", "INVALID_SITE_REQUEST", "INVALID_SITE_WINDOW",
                         "SITE_WINDOW_EXPIRED", "SITE_REQUEST_LIMIT", "APP_REQUEST_LIMIT") ->
                         requireNotNull(reason)
-                    status == 404 -> "SERVICE_NOT_READY"
                     status == 401 || status == 403 || reason == "APP_ACCESS_DENIED" -> "APP_ACCESS_DENIED"
+                    status == 404 -> "SERVICE_NOT_READY"
+                    status == 429 || status >= 500 -> "SERVICE_UNAVAILABLE"
                     else -> "SERVICE_ERROR"
                 })
             }

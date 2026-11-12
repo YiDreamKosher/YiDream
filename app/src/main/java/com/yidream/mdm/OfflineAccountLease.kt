@@ -6,6 +6,9 @@ import android.provider.Settings
 import org.json.JSONObject
 import java.time.Instant
 
+internal fun androidBootCount(context: Context): Int =
+    runCatching { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1) }.getOrDefault(-1)
+
 /** Offline access is a time-limited copy of a confirmed server binding in the encrypted session. */
 internal object OfflineAccountLease {
     private const val KEY = "confirmed_access"
@@ -14,8 +17,7 @@ internal object OfflineAccountLease {
     internal data class Clock(val wall: Long, val elapsed: Long, val boot: Int)
 
     private fun clock(context: Context) = Clock(System.currentTimeMillis(), SystemClock.elapsedRealtime(),
-        runCatching { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1) }
-            .getOrDefault(-1))
+        androidBootCount(context))
 
     fun confirm(context: Context, session: JSONObject, access: AppAccess): JSONObject =
         confirm(session, access, clock(context))
