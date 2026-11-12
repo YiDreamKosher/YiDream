@@ -129,7 +129,19 @@ class MainActivity : AppCompatActivity() {
                 access.deviceId?.let { getString(R.string.account_device_id, it) }).joinToString("\n")
             setTextIsSelectable(true)
         }
-        listOf(R.id.accountSettingsWhatsApp, R.id.accountLogout).forEach { id ->
+        findViewById<View>(R.id.accountCopyDeviceId).apply {
+            val deviceId = access.deviceId
+            visibility = if (deviceId == null) View.GONE else View.VISIBLE
+            if (deviceId != null) setOnClickListener {
+                getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(
+                    android.content.ClipData.newPlainText(getString(R.string.account_copy_device_id), deviceId)
+                )
+            }
+        }
+        findViewById<View>(R.id.accountReactivate).setOnClickListener {
+            hideWorkspace(reactivate = true)
+        }
+        listOf(R.id.accountCopyDeviceId, R.id.accountReactivate, R.id.accountSettingsWhatsApp, R.id.accountLogout).forEach { id ->
             findViewById<androidx.appcompat.widget.AppCompatButton>(id).apply {
                 backgroundTintList = null
                 supportBackgroundTintList = null
@@ -365,7 +377,7 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
     }
 
-    private fun hideWorkspace() {
+    private fun hideWorkspace(reactivate: Boolean = false) {
         offlineExpiry?.cancel()
         offlineExpiry = null
         if (::portal.isInitialized) portal.pauseStoreUpdates()
@@ -376,7 +388,7 @@ class MainActivity : AppCompatActivity() {
             restoredSettingsPage = if (::settingsMenu.isInitialized) settingsMenu.selected else null
             mainVisible = false
             // Mask the workspace before Android keeps a paused activity or task snapshot.
-            accountGate.showLogin()
+            if (reactivate) accountGate.showReactivation() else accountGate.showLogin()
         }
     }
 

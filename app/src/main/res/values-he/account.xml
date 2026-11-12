@@ -25,4 +25,6 @@
     <string name="account_replace_prompt">קוד הפעלה הועבר דרך USB. הפעלתו תחליף את החשבון בטלפון הזה.</string>
     <string name="account_service_pending">שירות ההפעלה אינו זמין כרגע. פנו למנהל המכשיר.</string>
     <string name="account_device_id">מזהה מכשיר: %1$s</string>
+    <string name="account_copy_device_id">העתקת מזהה המכשיר</string>
+    <string name="account_reactivate">הזנת קוד הפעלה</string>
 </resources>

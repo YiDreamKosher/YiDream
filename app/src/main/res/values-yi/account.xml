@@ -25,4 +25,6 @@
     <string name="account_replace_prompt">אַ קאָד איז געשיקט געוואָרן דורך USB. אַקטיווירן דעם קאָד וועט פֿאַרבײַטן דעם חשבון אויפֿן טעלעפֿאָן.</string>
     <string name="account_service_pending">דער אַקטיוואַציע־דינסט איז איצט נישט פֿאַראַן. ווענדט זיך צום אַדמיניסטראַטאָר.</string>
     <string name="account_device_id">מיטל־אידענטיפֿיקאַציע: %1$s</string>
+    <string name="account_copy_device_id">קאָפּירן דעם דיווייס־אידענטיפֿיקאַטאָר</string>
+    <string name="account_reactivate">אַרײַנשרײַבן אַן אַקטיוויזירונג־קאָד</string>
 </resources>
