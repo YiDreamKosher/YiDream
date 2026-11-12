@@ -134,7 +134,7 @@ internal object OfflineRequests {
         if (!DeviceOwnerManager(context).isDeviceOwner()) return@withLock true
         val account = AppAccountService(context)
         if (!account.hasSession) return@withLock true
-        if (!InternetReachability.isOnline(context)) return@withLock false
+        if (!InternetReachability.hasInternetRoute(context)) return@withLock false
         val scope = try {
             account.validateOnlineSession().scope() ?: return@withLock true
         } catch (error: CancellationException) {

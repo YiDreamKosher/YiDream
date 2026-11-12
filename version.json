@@ -1,7 +1,7 @@
 {
-  "versionCode": 22,
-  "versionName": "v6.3.0",
+  "versionCode": 23,
+  "versionName": "v6.3.1",
   "apkUrl": "https://yidreamkosher.github.io/YiDream/admin/yidream.apk",
   "apkSha256": "",
-  "changelog": "Request site access for 24 hours or until a selected trip end time. Temporary access expires in the YiDream reader even when the phone is offline. Administrators can prepare an account before assigning an approved phone."
+  "changelog": "Improves account access on filtered networks and prevents concurrent session updates from dropping access. Request site access for 24 hours or until a selected trip end time. Temporary access expires in the YiDream reader even when the phone is offline. Administrators can prepare an account before assigning an approved phone."
 }
