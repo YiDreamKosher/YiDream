@@ -37,7 +37,7 @@ internal class CatalogInstaller(private val context: Context) {
         val metadata = ApkMetadata(context.packageManager)
         val firstInstall = metadata.installed(release.packageName) == null
         suspend fun authorized(): Boolean {
-            if (!owner.isDeviceOwner() || owner.isInstallationChannel(release.packageName) || service.deviceCredential() != device) return false
+            if (!owner.isDeviceOwner() || !owner.canInstallCatalogApp(release.packageName) || service.deviceCredential() != device) return false
             val policy = service.devicePolicy(device)
             if (!CatalogUpdatePolicy.canInstall(policy, release.packageName,
                     metadata.installed(release.packageName)?.versionCode, release.version, firstInstall)) return false
@@ -45,8 +45,7 @@ internal class CatalogInstaller(private val context: Context) {
             val listed = (0 until entries.length()).any { index ->
                 entries.optJSONObject(index)?.let { Release.from(it) == release } == true
             }
-            return listed && service.deviceCredential() == device && !owner.isInstallationChannel(release.packageName) &&
-                !owner.dpm.isApplicationHidden(owner.adminComponent, release.packageName)
+            return listed && service.deviceCredential() == device && owner.canInstallCatalogApp(release.packageName)
         }
 
         var temporaryApk: File? = null

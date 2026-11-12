@@ -163,7 +163,7 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
     private fun needsUpdate(app: JSONObject) = CatalogUpdatePolicy.shouldUpdate(installedVersion(app.optString("package_name")), app.optLong("version_code"))
     private fun firstInstallApproved(pkg: String): Boolean =
         pkg != activity.packageName && DevicePolicy.validPackageName(pkg) &&
-            !deviceOwner.isInstallationChannel(pkg) && !deviceOwner.isAppBlocked(pkg) &&
+            deviceOwner.canInstallCatalogApp(pkg) &&
             RemoteDevicePolicy.current(activity)?.apps?.get(pkg) == true
 
     fun load(onPair: () -> Unit) {

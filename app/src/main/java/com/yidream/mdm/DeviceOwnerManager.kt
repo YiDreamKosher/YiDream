@@ -125,6 +125,11 @@ class DeviceOwnerManager(private val context: Context) {
         null
     }
 
+    internal fun canInstallCatalogApp(packageName: String): Boolean = runCatching {
+        !isInstallationChannel(packageName) &&
+            (installedApp(packageName) == null || !dpm.isApplicationHidden(adminComponent, packageName))
+    }.getOrDefault(false)
+
     private fun launchablePackages(): Set<String> =
         listOf(Intent.CATEGORY_LAUNCHER, Intent.CATEGORY_LEANBACK_LAUNCHER).flatMap { category ->
             val intent = Intent(Intent.ACTION_MAIN).addCategory(category)
