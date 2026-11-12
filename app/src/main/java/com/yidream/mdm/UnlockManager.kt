@@ -1,6 +1,7 @@
 package com.yidream.mdm
 
 import android.content.Context
+import android.util.Base64
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -34,18 +35,25 @@ class UnlockManager(private val context: Context) {
     companion object {
         private const val PREFS_NAME = "yidream_unlock"
         private const val KEY_INTERMEDIATE = "intermediate_key"
-        private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
+        private const val FAILED_ATTEMPTS = "failed_attempts"
+        private const val RETRY_AT = "retry_at"
+        private const val WAIT_MS = 15 * 60_000L
     }
 
     private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun storeIntermediateKey(base64Key: String) {
-        prefs().edit().putString(KEY_INTERMEDIATE, base64Key).apply()
+        require(decodeKey(base64Key) != null)
+        check(prefs().edit().putString(KEY_INTERMEDIATE, base64Key).commit())
     }
 
-    fun hasKeyConfigured(): Boolean = prefs().contains(KEY_INTERMEDIATE)
+    fun hasKeyConfigured(): Boolean = recoveryKey() != null
+
+    private fun decodeKey(value: String): ByteArray? = runCatching {
+        Base64.decode(value, Base64.NO_WRAP).takeIf { it.size == 32 }
+    }.getOrNull()
+
+    private fun recoveryKey(): ByteArray? = prefs().getString(KEY_INTERMEDIATE, null)?.let(::decodeKey)
 
     private fun hmacSha256(keyBytes: ByteArray, message: String): ByteArray {
         val mac = Mac.getInstance("HmacSHA256")
@@ -53,9 +61,7 @@ class UnlockManager(private val context: Context) {
         return mac.doFinal(message.toByteArray(Charsets.UTF_8))
     }
 
-    private fun codeFor(dateString: String): String? {
-        val base64Key = prefs().getString(KEY_INTERMEDIATE, null) ?: return null
-        val keyBytes = android.util.Base64.decode(base64Key, android.util.Base64.NO_WRAP)
+    private fun codeFor(keyBytes: ByteArray, dateString: String): String {
         val digest = hmacSha256(keyBytes, dateString)
         // 6 caractères hexadécimaux en majuscules, faciles à taper
         return digest.joinToString("") { "%02X".format(it) }.take(6)
@@ -66,14 +72,31 @@ class UnlockManager(private val context: Context) {
      * (avec une marge de ±1 jour pour tolérer les changements de fuseau
      * horaire / minuit proche).
      */
-    fun verify(inputCode: String): Boolean {
-        if (!hasKeyConfigured()) return false
-        val cleaned = inputCode.trim().uppercase()
-        val now = Date()
-        val candidates = listOf(-1, 0, 1).map { offsetDays ->
-            val d = Date(now.time + offsetDays * 24L * 60 * 60 * 1000)
-            DATE_FORMAT.format(d)
+    enum class Verification { ACCEPTED, INCORRECT, LOCKED }
+
+    fun verify(inputCode: String): Verification {
+        val key = recoveryKey() ?: return Verification.INCORRECT
+        val now = System.currentTimeMillis()
+        val prefs = prefs()
+        val retryAt = prefs.getLong(RETRY_AT, 0L)
+        if (retryAt > now) return Verification.LOCKED
+        val cleaned = inputCode.trim().uppercase(Locale.ROOT)
+        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
         }
-        return candidates.any { codeFor(it) == cleaned }
+        val candidates = listOf(-1, 0, 1).map { offsetDays ->
+            formatter.format(Date(now + offsetDays * 24L * 60 * 60 * 1000))
+        }
+        if (candidates.any { codeFor(key, it) == cleaned }) {
+            prefs.edit().remove(FAILED_ATTEMPTS).remove(RETRY_AT).commit()
+            return Verification.ACCEPTED
+        }
+        val attempts = if (retryAt > 0L) 1 else prefs.getInt(FAILED_ATTEMPTS, 0) + 1
+        if (attempts >= 5) {
+            prefs.edit().putLong(RETRY_AT, now + WAIT_MS).remove(FAILED_ATTEMPTS).commit()
+            return Verification.LOCKED
+        }
+        prefs.edit().putInt(FAILED_ATTEMPTS, attempts).remove(RETRY_AT).commit()
+        return Verification.INCORRECT
     }
 }

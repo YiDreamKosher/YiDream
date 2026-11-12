@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lockdown_admin_recovery">Maintenance administrateur</string>
+    <string name="lockdown_incomplete">Le verrouillage du téléphone reste à vérifier. Contacte ton administrateur avant de remettre le téléphone.</string>
+    <string name="lockdown_retry_code">Trop de tentatives. Attends 15 minutes avant de réessayer.</string>
+</resources>

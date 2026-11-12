@@ -27,7 +27,14 @@ internal object AccountInput {
 }
 
 internal data class AppAccount(val id: String, val email: String, val phone: String, val emailVerified: Boolean)
-internal data class AppAccess(val account: AppAccount, val deviceId: String?) {
+internal data class AppAccess(
+    val account: AppAccount,
+    val deviceId: String?,
+    val offline: Boolean = false,
+    val offlineUntil: Long? = null
+) {
+    fun scope(): DeviceRequestScope? = deviceId?.let { DeviceRequestScope(account.id, it) }
+
     companion object {
         fun fromJson(value: JSONObject): AppAccess {
             val account = value.getJSONObject("account")
@@ -52,13 +59,16 @@ internal object AppAccountDependencies {
 }
 
 /** Only ciphertext and its random GCM IV are persisted; the AES key never leaves Android Keystore. */
-internal class AppSessionStore(context: Context) {
-    private val preferences = context.getSharedPreferences("yidream_account_session", Context.MODE_PRIVATE)
-    private fun key(): SecretKey {
+internal class AppSessionStore(context: Context, requests: Boolean = false) {
+    private val preferences = context.getSharedPreferences(
+        if (requests) "yidream_offline_requests" else "yidream_account_session", Context.MODE_PRIVATE
+    )
+    private val keyAlias = if (requests) "yidream.app.requests.aes.v1" else "yidream.app.account.aes.v1"
+    private fun key(): SecretKey = synchronized(keyLock) {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        return (store.getKey(KEY_ALIAS, null) as? SecretKey) ?: KeyGenerator.getInstance(
+        (store.getKey(keyAlias, null) as? SecretKey) ?: KeyGenerator.getInstance(
             KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
-            init(KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+            init(KeyGenParameterSpec.Builder(keyAlias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setRandomizedEncryptionRequired(true).build())
             generateKey()
@@ -84,7 +94,7 @@ internal class AppSessionStore(context: Context) {
     }
 
     fun clear() { preferences.edit().clear().commit() }
-    companion object { private const val KEY_ALIAS = "yidream.app.account.aes.v1" }
+    companion object { private val keyLock = Any() }
 }
 
 internal class AccountRequestException(val status: Int, val reason: String) : Exception(reason)
@@ -109,8 +119,9 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
                     deviceToken.matches(TOKEN_FORMAT) && Instant.parse(expiresAt).isAfter(Instant.now())) {
                     "INVALID_SESSION"
                 }
-                store.write(JSONObject().put("kind", "code").put("app_token", appToken)
-                    .put("expires_at", expiresAt).put("device_id", access.deviceId).put("device_token", deviceToken))
+                val session = JSONObject().put("kind", "code").put("app_token", appToken)
+                    .put("expires_at", expiresAt).put("device_id", access.deviceId).put("device_token", deviceToken)
+                store.write(OfflineAccountLease.confirm(context, session, access))
                 context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
                 access
             }
@@ -118,6 +129,14 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
     }
 
     override suspend fun validateSession(): AppAccess {
+        if (!InternetReachability.isOnline(context)) {
+            return offlineAccess() ?: error("OFFLINE_CONFIRMATION_REQUIRED")
+        }
+        return validateOnlineSession()
+    }
+
+    internal suspend fun validateOnlineSession(): AppAccess {
+        check(InternetReachability.isOnline(context)) { "OFFLINE_CONFIRMATION_REQUIRED" }
         val session = validSession()
         return try {
             val deviceId = session.optString("device_id")
@@ -128,29 +147,61 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
             val result = request("/rest/v1/rpc/yd_app_access_status", JSONObject().put("app_token",
                 if (session.optString("kind") == "code") session.getString("app_token") else JSONObject.NULL), headers(session))
             val access = AppAccess.fromJson(result)
-            if (session.optString("kind") == "code") {
+            val codeSession = session.optString("kind") == "code"
+            val expiry = if (codeSession) {
                 check(access.deviceId == deviceId) { "SESSION_CHANGED" }
                 val expiry = result.getString("expires_at")
                 check(Instant.parse(expiry).isAfter(Instant.now())) { "INVALID_SESSION" }
-                sessionLock.withLock {
-                    val current = store.read() ?: error("SIGN_IN_REQUIRED")
-                    check(current.optString("app_token") == session.optString("app_token")) { "SESSION_CHANGED" }
-                    if (current.optString("expires_at") != expiry) store.write(current.put("expires_at", expiry))
-                }
+                expiry
             } else {
                 // Existing email sessions can continue only on their own previously approved phone.
-                request("/rest/v1/rpc/yd_get_device_policy", JSONObject().put("device_token", deviceToken), headers(session))
+                request("/rest/v1/rpc/yd_get_device_policy", JSONObject().put("device_token", deviceToken),
+                    headers(session), maxResponseChars = 128 * 1024)
+                null
             }
-            access.copy(deviceId = deviceId)
-        } catch (error: AccountRequestException) {
-            if (error.status == 401 || error.status == 403 || error.reason.contains("APP_ACCESS_DENIED")) {
-                val key = if (session.optString("kind") == "code") "app_token" else "access_token"
+            val bound = access.copy(deviceId = deviceId)
+            sessionLock.withLock {
+                val current = store.read() ?: error("SIGN_IN_REQUIRED")
+                check(matchesSession(current, session)) { "SESSION_CHANGED" }
+                if (expiry != null) current.put("expires_at", expiry)
+                store.write(OfflineAccountLease.confirm(context, current, bound))
+            }
+            bound
+        } catch (error: Exception) {
+            if ((error is AccountRequestException && (error.status == 401 || error.status == 403)) ||
+                error.message?.contains("APP_ACCESS_DENIED") == true) {
                 sessionLock.withLock {
-                    if (store.read()?.optString(key) == session.optString(key)) clearLocal()
+                    if (store.read()?.let { matchesSession(it, session) } == true) clearLocal()
                 }
             }
             throw error
         }
+    }
+
+    internal fun offlineAccess(): AppAccess? =
+        if (DeviceOwnerManager(context).isDeviceOwner()) {
+            store.read()?.let { OfflineAccountLease.read(context, it) }
+        } else null
+
+    internal suspend fun requestCredentials(scope: DeviceRequestScope): Pair<String, Map<String, String>> {
+        val session = validSession()
+        val lease = OfflineAccountLease.read(context, session)
+        check(lease?.scope() == scope) { "SESSION_CHANGED" }
+        return session.getString("device_token") to headers(session)
+    }
+
+    internal fun confirmQueueScope(scope: DeviceRequestScope): Boolean =
+        store.read()?.let { OfflineAccountLease.read(context, it)?.scope() == scope } == true
+
+    internal suspend fun invalidateQueueScope(scope: DeviceRequestScope) = sessionLock.withLock {
+        if (confirmQueueScope(scope)) clearLocal()
+    }
+
+    private fun matchesSession(current: JSONObject, previous: JSONObject): Boolean {
+        val credential = if (previous.optString("kind") == "code") "app_token" else "access_token"
+        return current.optString(credential) == previous.optString(credential) &&
+            current.optString("device_id") == previous.optString("device_id") &&
+            current.optString("device_token") == previous.optString("device_token")
     }
 
     suspend fun requestHeaders(): Map<String, String> = headers(validSession())
@@ -167,7 +218,9 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
                 val refreshed = request("/auth/v1/token?grant_type=refresh_token", JSONObject().put("refresh_token", session.getString("refresh_token")))
                 requireSession(refreshed)
                 refreshed.put("kind", "email")
-                listOf("device_id", "device_token").forEach { if (session.has(it)) refreshed.put(it, session.getString(it)) }
+                listOf("device_id", "device_token", "confirmed_access").forEach {
+                    if (session.has(it)) refreshed.put(it, session.get(it))
+                }
                 store.write(refreshed); session = refreshed
             } catch (error: AccountRequestException) {
                 if (error.status in listOf(400, 401, 403)) clearLocal()
@@ -205,6 +258,7 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
 
     internal suspend fun saveDeviceCredential(value: JSONObject) = sessionLock.withLock {
         val session = store.read() ?: error("SIGN_IN_REQUIRED")
+        session.remove("confirmed_access")
         session.put("device_id", value.getString("device_id")).put("device_token", value.getString("token"))
         store.write(session)
         // Remove credentials persisted by versions before mandatory account access.
@@ -216,7 +270,10 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
         if (id.isNotBlank() && token.isNotBlank()) id to token else null
     }
 
-    private suspend fun request(path: String, body: JSONObject, extraHeaders: Map<String, String> = emptyMap()): JSONObject = withContext(Dispatchers.IO) {
+    private suspend fun request(
+        path: String, body: JSONObject, extraHeaders: Map<String, String> = emptyMap(),
+        maxResponseChars: Int = 32 * 1024
+    ): JSONObject = withContext(Dispatchers.IO) {
         val connection = URL(SERVICE + path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"; connection.instanceFollowRedirects = false
@@ -228,14 +285,14 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val response = stream?.bufferedReader()?.use { reader ->
-                val buffer = CharArray(32769)
+                val buffer = CharArray(maxResponseChars + 1)
                 var length = 0
                 while (length < buffer.size) {
                     val count = reader.read(buffer, length, buffer.size - length)
                     if (count == -1) break
                     length += count
                 }
-                check(length <= 32768) { "RESPONSE_TOO_LARGE" }
+                check(length <= maxResponseChars) { "RESPONSE_TOO_LARGE" }
                 String(buffer, 0, length)
             }.orEmpty()
             if (status !in 200..299) {

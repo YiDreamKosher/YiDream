@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_workspace_notice">קיין אינטערנעט. די בקשות ווערן געשיקט ווען דער פֿאַרבינדונג קערט זיך אום.</string>
+    <string name="quick_settings_summary">לייגט צו YiDream צו די שנעלע Android סעטינגס כּדי עס צו עפֿענען פֿון דאָרטן.</string>
+    <string name="quick_settings_hide">נאָר נוצן די שנעלע סעטינגס</string>
+    <string name="quick_settings_restore">צוריקשטעלן דעם היים־בילדל</string>
+    <string name="quick_settings_add_first">לייגט ערשט צו דעם YiDream קנעפּל אין די שנעלע סעטינגס און קומט צוריק.</string>
+</resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="site_window_duration">משך הגישה</string>
+    <string name="site_window_permanent">גישה ללא תאריך סיום</string>
+    <string name="site_window_24h">24 שעות לאחר האישור</string>
+    <string name="site_window_trip">עד סוף הנסיעה שלי</string>
+    <string name="site_window_pick_date">בחירת תאריך ושעה</string>
+    <string name="site_window_invalid_date">יש לבחור תאריך ושעה תקינים בתוך 365 הימים הבאים.</string>
+    <string name="site_window_requested_24h">בקשה ל־24 שעות לאחר האישור</string>
+    <string name="site_window_requested_until">בקשה עד %1$s</string>
+    <string name="site_window_allowed_until">הגישה מותרת עד %1$s</string>
+    <string name="site_window_previously_allowed_until">הגישה אושרה עד %1$s</string>
+    <string name="site_window_expired">תוקף הגישה הזמנית פג</string>
+</resources>

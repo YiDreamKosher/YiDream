@@ -19,7 +19,9 @@ import kotlinx.coroutines.launch
 internal class AccountGateController(
     private val activity: AppCompatActivity,
     private val client: AppAccountClient,
-    private val authenticated: (AppAccess) -> Unit
+    private val canRecover: () -> Boolean,
+    private val recover: () -> Unit,
+    private val authenticated: (AppAccess, Boolean) -> Unit
 ) {
     private var task: Job? = null
     private var activation: Job? = null
@@ -68,15 +70,18 @@ internal class AccountGateController(
         task = activity.lifecycleScope.launch {
             try {
                 val access = client.validateSession()
-                if (foreground) authenticated(access)
+                if (foreground) authenticated(access, false)
             } catch (error: CancellationException) {
                 throw error
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 if (!client.hasSession) {
                     showLogin(R.string.account_session_expired)
                 } else {
                     view<View>(R.id.accountProgress).visibility = View.GONE
-                    view<TextView>(R.id.accountCheckMessage).setText(R.string.account_check_failed)
+                    view<TextView>(R.id.accountCheckMessage).setText(
+                        if (error.message == "OFFLINE_CONFIRMATION_REQUIRED") R.string.offline_confirmation_required
+                        else R.string.account_check_failed
+                    )
                     view<View>(R.id.accountRetry).visibility = View.VISIBLE
                     view<View>(R.id.accountOther).visibility = View.VISIBLE
                 }
@@ -102,7 +107,7 @@ internal class AccountGateController(
             try {
                 val access = client.activateCode(normalized)
                 code.text.clear()
-                if (foreground) authenticated(access)
+                if (foreground) authenticated(access, true)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -118,13 +123,17 @@ internal class AccountGateController(
     private fun setAccountScreen() {
         activity.setContentView(R.layout.activity_account)
         listOf(R.id.accountContinue, R.id.accountKeep, R.id.accountWhatsApp,
-            R.id.accountRetry, R.id.accountOther).forEach { id ->
+            R.id.accountRetry, R.id.accountOther, R.id.accountMaintenance).forEach { id ->
             view<AppCompatButton>(id).apply {
                 backgroundTintList = null
                 supportBackgroundTintList = null
             }
         }
         view<Button>(R.id.accountWhatsApp).setOnClickListener { openWhatsApp(activity) }
+        view<Button>(R.id.accountMaintenance).apply {
+            visibility = if (canRecover()) View.VISIBLE else View.GONE
+            setOnClickListener { recover() }
+        }
     }
 
     private fun setCheckingScreen() {

@@ -99,7 +99,8 @@ class SettingsNavigationTest {
         assertNotNull("Removal opens the existing unlock dialog", dialog)
         listOf(R.id.codeBox0, R.id.codeBox1, R.id.codeBox2, R.id.codeBox3, R.id.codeBox4, R.id.codeBox5)
             .forEach { assertNotNull(dialog.findViewById<View>(it)) }
-        assertFalse("No unlock key has been configured in this fixture", UnlockManager(activity).verify("000000"))
+        assertEquals("No unlock key has been configured in this fixture",
+            UnlockManager.Verification.INCORRECT, UnlockManager(activity).verify("000000"))
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
         // AlertController posts the dismiss operation to the main looper.
         shadowOf(Looper.getMainLooper()).idle()

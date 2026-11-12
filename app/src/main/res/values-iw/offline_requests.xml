@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_confirmation_required">יש להתחבר לאינטרנט כדי לאמת את הגישה של המכשיר לפני השימוש ב-YiDream במצב לא מקוון.</string>
+    <string name="offline_new_app_request">בקשה לפתיחת אפליקציה</string>
+    <string name="offline_app_request">בקשת פתיחת אפליקציה</string>
+    <string name="offline_no_apps">אין אפליקציות מותקנות וחסומות שניתן לבקש לפתוח.</string>
+    <string name="offline_requests_hint">בקשות שנשמרו יישלחו אוטומטית כשהטלפון יתחבר מחדש.</string>
+    <string name="offline_request_waiting">ממתינה לשליחה</string>
+    <string name="offline_request_failed">השרת דחה את הבקשה.</string>
+    <string name="offline_discard_request">מחיקת בקשה שנדחתה</string>
+    <string name="offline_queue_full">תור הבקשות מלא. יש להתחבר לאינטרנט כדי לשלוח את הבקשות.</string>
+</resources>

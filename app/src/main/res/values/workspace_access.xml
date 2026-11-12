@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_workspace_notice">Offline. Requests will be sent when the connection returns.</string>
+    <string name="quick_settings_summary">Add YiDream to Android Quick Settings to open it from the notification shade.</string>
+    <string name="quick_settings_hide">Use Quick Settings only</string>
+    <string name="quick_settings_restore">Restore home screen icon</string>
+    <string name="quick_settings_add_first">Add the YiDream tile in Quick Settings first, then return here.</string>
+</resources>

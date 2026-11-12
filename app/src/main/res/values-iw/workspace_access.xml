@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_workspace_notice">אין חיבור לאינטרנט. הבקשות יישלחו כשהחיבור יחזור.</string>
+    <string name="quick_settings_summary">הוסיפו את YiDream להגדרות המהירות של Android כדי לפתוח מהחלונית.</string>
+    <string name="quick_settings_hide">פתיחה דרך ההגדרות המהירות בלבד</string>
+    <string name="quick_settings_restore">החזרת הסמל למסך הבית</string>
+    <string name="quick_settings_add_first">הוסיפו את אריח YiDream להגדרות המהירות ואז חזרו לכאן.</string>
+</resources>

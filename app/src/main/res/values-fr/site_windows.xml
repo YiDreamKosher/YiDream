@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="site_window_duration">Durée de l’accès</string>
+    <string name="site_window_permanent">Accès sans date de fin</string>
+    <string name="site_window_24h">24 heures après approbation</string>
+    <string name="site_window_trip">Jusqu’à la fin de mon voyage</string>
+    <string name="site_window_pick_date">Choisir la date et l’heure</string>
+    <string name="site_window_invalid_date">Choisissez une date et une heure valides dans les 365 prochains jours.</string>
+    <string name="site_window_requested_24h">Demandé pour 24 heures après approbation</string>
+    <string name="site_window_requested_until">Demandé jusqu’au %1$s</string>
+    <string name="site_window_allowed_until">Accès autorisé jusqu’au %1$s</string>
+    <string name="site_window_previously_allowed_until">L’accès avait été approuvé jusqu’au %1$s</string>
+    <string name="site_window_expired">Accès temporaire expiré</string>
+</resources>

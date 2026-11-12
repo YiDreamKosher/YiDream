@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lockdown_admin_recovery">תחזוקת מנהל</string>
+    <string name="lockdown_incomplete">לא ניתן היה לאמת את נעילת הטלפון. פנו למנהל לפני מסירת המכשיר.</string>
+    <string name="lockdown_retry_code">בוצעו יותר מדי ניסיונות. יש להמתין 15 דקות לפני ניסיון נוסף.</string>
+</resources>

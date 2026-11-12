@@ -2,6 +2,8 @@ package com.yidream.mdm
 
 import android.app.LocaleManager
 import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -66,7 +68,7 @@ class DesignPreservationTest {
         val rtl = testName.methodName == "rtlScreenKeepsFourTabsAndTheNativeCatalogLayout"
         val qualifiers = when {
             rtl -> "he-ldrtl-w320dp-h640dp-xhdpi"
-            testName.methodName == "narrowScreenKeepsNavigationAndPrimaryInstallActionReachable" -> "fr-w320dp-h568dp-xhdpi"
+            testName.methodName == "narrowScreenKeepsNavigationAndPrimaryUpdateActionReachable" -> "fr-w320dp-h568dp-xhdpi"
             else -> "fr-w360dp-h800dp-xhdpi"
         }
         // LocaleManager's Robolectric shadow records app locales, but does not
@@ -117,10 +119,10 @@ class DesignPreservationTest {
         select(R.id.tabStore, R.id.pageStore)
         showCatalogFixtures()
         layout(360, 800)
-        val install = buttons().firstOrNull { it.text.toString() == activity.getString(R.string.mdm_install) }
-        assertNotNull("A ready app still exposes the Installer action", install)
-        assertTrue("The visual installer fixture is enabled", install!!.isEnabled)
-        assertTrue("The actual catalog card keeps the install listener", install.hasOnClickListeners())
+        val install = buttons().firstOrNull { it.text.toString() == activity.getString(R.string.store_update) }
+        assertNotNull("An installed app exposes an approved update", install)
+        assertTrue("The visual update fixture is enabled", install!!.isEnabled)
+        assertTrue("The catalog card keeps the update listener", install.hasOnClickListeners())
         assertTrue(texts().any { it.text.toString() == activity.getString(R.string.store_apk_missing) })
         capture("store", 360, 800)
 
@@ -187,15 +189,15 @@ class DesignPreservationTest {
 
     @Test
     @Config(qualifiers = "fr-w320dp-h568dp-xhdpi")
-    fun narrowScreenKeepsNavigationAndPrimaryInstallActionReachable() {
+    fun narrowScreenKeepsNavigationAndPrimaryUpdateActionReachable() {
         layout(320, 568)
         pages.keys.forEach { tab -> assertFullyVisible(activity.findViewById(tab), 320) }
         select(R.id.tabStore, R.id.pageStore)
         showCatalogFixtures()
         layout(320, 568)
-        val install = buttons().first { it.text.toString() == activity.getString(R.string.mdm_install) }
+        val install = buttons().first { it.text.toString() == activity.getString(R.string.store_update) }
         assertFullyVisible(install, 320)
-        assertTrue("Installer keeps a touch target of at least 48 dp", install.height >= dp(48))
+        assertTrue("Update button keeps a touch target of at least 48 dp", install.height >= dp(48))
         capture("store-narrow", 320, 568)
 
         // Inflate the real unlock form without opening or submitting filter removal.
@@ -252,6 +254,18 @@ class DesignPreservationTest {
         val content = activity.findViewById<LinearLayout>(R.id.storeContent)
         content.removeAllViews()
         val catalog = CatalogScreenController(activity, MdmService(activity))
+        for (pkg in listOf("com.whatsapp", "com.waze", "net.calj.android")) {
+            shadowOf(activity.packageManager).installPackage(PackageInfo().apply {
+                packageName = pkg
+                versionName = "2.20.0"
+                @Suppress("DEPRECATION")
+                versionCode = 22000
+                applicationInfo = ApplicationInfo().apply {
+                    packageName = pkg
+                    flags = ApplicationInfo.FLAG_INSTALLED
+                }
+            })
+        }
         fun app(name: String, pkg: String, description: String, ready: Boolean) = JSONObject()
             .put("name", name).put("package_name", pkg).put("description", description)
             .put("is_base", true).put("version_name", "2.24.1").put("version_code", 22401L)

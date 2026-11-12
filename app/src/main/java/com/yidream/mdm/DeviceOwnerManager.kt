@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.UserManager
 import android.provider.Telephony
@@ -49,6 +50,37 @@ class DeviceOwnerManager(private val context: Context) {
 
     val knownStores = listOf("com.android.vending")
 
+    private val installationChannelNames = setOf(
+        "com.android.vending", "com.amazon.venezia", "com.sec.android.app.samsungapps",
+        "com.huawei.appmarket", "com.xiaomi.market", "com.oppo.market", "com.heytap.market",
+        "com.bbk.appstore", "com.vivo.appstore", "org.fdroid.fdroid", "com.aurora.store"
+    )
+    private val lockdownPreferences get() = context.getSharedPreferences("yidream_installation_lock", Context.MODE_PRIVATE)
+    private val users get() = context.getSystemService(UserManager::class.java)
+
+    private fun installationChannels(): Set<String> {
+        val intents = listOf(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MARKET),
+            Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${context.packageName}"))
+        )
+        val packages = context.packageManager
+        @Suppress("DEPRECATION")
+        val storefronts = intents.flatMap { packages.queryIntentActivities(it,
+            PackageManager.MATCH_DISABLED_COMPONENTS or PackageManager.MATCH_UNINSTALLED_PACKAGES) }
+            .map { it.activityInfo.packageName }
+        return installationChannelNames + storefronts +
+            lockdownPreferences.getStringSet("protected_stores", emptySet()).orEmpty()
+    }
+
+    internal fun isInstallationChannel(packageName: String): Boolean = packageName in installationChannels()
+
+    internal fun isDebuggingBlocked(): Boolean =
+        users?.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES) == true
+
+    internal fun hasUpdateCompatibleLockdown(): Boolean =
+        isDebuggingBlocked() && users?.hasUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES) == true &&
+            users?.hasUserRestriction(UserManager.DISALLOW_INSTALL_APPS) == false
+
     // ---------------------------------------------------------------
     // Blocage / déblocage d'une app (masquage : invisible et inutilisable,
     // sans désinstallation réelle qui n'est pas possible pour toutes les apps).
@@ -57,6 +89,7 @@ class DeviceOwnerManager(private val context: Context) {
     fun setAppBlocked(packageName: String, blocked: Boolean): Boolean {
         if (!isDeviceOwner()) return false
         return try {
+            if (!blocked && isDebuggingBlocked() && isInstallationChannel(packageName)) return false
             if (dpm.isApplicationHidden(adminComponent, packageName) != blocked &&
                 !dpm.setApplicationHidden(adminComponent, packageName, blocked)) return false
             dpm.isApplicationHidden(adminComponent, packageName) == blocked
@@ -126,28 +159,19 @@ class DeviceOwnerManager(private val context: Context) {
     // Restrictions globales de l'appareil.
     // ---------------------------------------------------------------
 
-    private val allRestrictions = listOf(
+    private val baseRestrictions = listOf(
         UserManager.DISALLOW_ADD_USER,
         UserManager.DISALLOW_FACTORY_RESET,
-        UserManager.DISALLOW_INSTALL_APPS,
         UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES,
         UserManager.DISALLOW_UNINSTALL_APPS,
         UserManager.DISALLOW_SAFE_BOOT,
         UserManager.DISALLOW_CONFIG_DATE_TIME
-        // DISALLOW_DEBUGGING_FEATURES est volontairement absent de cette liste.
-        // La bloquer empêchait de manière intermittente le Web ADB de se
-        // reconnecter au téléphone pour retirer les restrictions en cas de
-        // besoin (le seul canal de secours en dehors du code de
-        // déverrouillage sur l'appareil). Le compromis : quelqu'un de
-        // techniquement averti pourrait rebasculer le débogage USB — mais
-        // la suppression du filtre reste de toute façon protégée par le
-        // code du jour (voir UnlockManager), donc ce n'est pas une porte
-        // dérobée en soi.
-    )
+    ) + if (Build.VERSION.SDK_INT >= 29) listOf(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)
+        else emptyList()
 
     fun applyBaseRestrictions() {
         if (!isDeviceOwner()) return
-        allRestrictions.forEach {
+        baseRestrictions.forEach {
             try { dpm.addUserRestriction(adminComponent, it) } catch (e: Exception) { }
         }
         try {
@@ -159,10 +183,56 @@ class DeviceOwnerManager(private val context: Context) {
         } catch (e: Exception) { }
     }
 
+    /** Switch from USB setup to the production restrictions on an approved phone. */
+    internal fun finishProvisioning(): Boolean {
+        if (!isDeviceOwner()) return false
+        applyBaseRestrictions()
+        val ready = runCatching {
+            val restrictions = requireNotNull(users)
+            val blockedSources = baseRestrictions.filter { it == UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES ||
+                it == UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY }
+            blockedSources.forEach { dpm.addUserRestriction(adminComponent, it) }
+            if (!blockedSources.all(restrictions::hasUserRestriction)) return@runCatching false
+
+            val storePackages = installationChannels().filter { name ->
+                if (name == context.packageName) return@filter false
+                try {
+                    @Suppress("DEPRECATION")
+                    val info = context.packageManager.getApplicationInfo(name, PackageManager.MATCH_UNINSTALLED_PACKAGES)
+                    info.flags and ApplicationInfo.FLAG_INSTALLED != 0
+                } catch (_: PackageManager.NameNotFoundException) {
+                    false
+                }
+            }
+            val previous = lockdownPreferences.getStringSet("restore_stores", emptySet()).orEmpty()
+            val newlyHidden = storePackages.filterNot { dpm.isApplicationHidden(adminComponent, it) }
+            check(lockdownPreferences.edit().putStringSet("protected_stores", storePackages.toSet())
+                .putStringSet("restore_stores", previous + newlyHidden).commit())
+            if (!storePackages.all { setAppBlocked(it, true) }) return@runCatching false
+
+            dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_DEBUGGING_FEATURES)
+            if (!isDebuggingBlocked()) return@runCatching false
+            // The former blanket restriction also prevents the Device Owner from updating apps.
+            if (dpm.getUserRestrictions(adminComponent).getBoolean(UserManager.DISALLOW_INSTALL_APPS)) {
+                dpm.clearUserRestriction(adminComponent, UserManager.DISALLOW_INSTALL_APPS)
+            }
+            !restrictions.hasUserRestriction(UserManager.DISALLOW_INSTALL_APPS)
+        }.getOrDefault(false)
+        if (!ready) {
+            runCatching { dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_INSTALL_APPS) }
+            runCatching { dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_DEBUGGING_FEATURES) }
+        }
+        return ready
+    }
+
     fun removeBaseRestrictions() {
         if (!isDeviceOwner()) return
-        allRestrictions.forEach {
+        (baseRestrictions + UserManager.DISALLOW_INSTALL_APPS + UserManager.DISALLOW_DEBUGGING_FEATURES).forEach {
             try { dpm.clearUserRestriction(adminComponent, it) } catch (e: Exception) { }
         }
+        lockdownPreferences.getStringSet("restore_stores", emptySet()).orEmpty().forEach {
+            runCatching { dpm.setApplicationHidden(adminComponent, it, false) }
+        }
+        lockdownPreferences.edit().clear().apply()
     }
 }

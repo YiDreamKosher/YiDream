@@ -1,45 +1,68 @@
 package com.yidream.mdm
 
 import android.content.Context
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
+import java.util.Locale
 
-/**
- * Installs entries returned by the device catalog API. Verifies HTTPS,
- * the administrator-approved SHA-256 and Android package identity.
- */
-class CatalogInstaller(private val context: Context) {
-
-
-
-    suspend fun install(app: org.json.JSONObject): SilentInstaller.Result = withContext(Dispatchers.IO) {
-        if (!DeviceOwnerManager(context).isDeviceOwner()) return@withContext SilentInstaller.Result.Failure("Configuration MDM requise.")
-        val apkUrl = app.getString("apk_url")
-        val expectedSha256 = app.getString("sha256")
-        val expectedPackage = app.getString("package_name")
-        val uri = android.net.Uri.parse(apkUrl)
-        if (uri.scheme != "https" || uri.host.isNullOrBlank() || uri.userInfo != null) {
-            return@withContext SilentInstaller.Result.Failure("Source d'installation non autorisée.")
+/** Updates an installed package using the release currently approved for this device. */
+internal class CatalogInstaller(private val context: Context) {
+    private data class Release(val packageName: String, val version: Long, val url: String, val sha256: String) {
+        companion object {
+            fun from(app: JSONObject) = Release(
+                app.optString("package_name"), app.optLong("version_code"),
+                app.optString("apk_url"), app.optString("sha256").lowercase(Locale.ROOT)
+            )
         }
-        if (!expectedSha256.matches(Regex("(?i)[0-9a-f]{64}"))) {
-            return@withContext SilentInstaller.Result.Failure("Empreinte de vérification invalide.")
+    }
+
+    suspend fun install(app: JSONObject): SilentInstaller.Result = withContext(Dispatchers.IO) {
+        val owner = DeviceOwnerManager(context)
+        val service = MdmService(context)
+        val device = service.deviceCredential()
+            ?: return@withContext SilentInstaller.Result.Failure("Appareil non associé.")
+        val release = Release.from(app)
+        val metadata = ApkMetadata(context.packageManager)
+        suspend fun authorized(): Boolean {
+            if (!owner.isDeviceOwner() || owner.isInstallationChannel(release.packageName) || service.deviceCredential() != device) return false
+            if (!CatalogUpdatePolicy.shouldUpdate(metadata.installed(release.packageName)?.versionCode, release.version)) return false
+            val policy = service.devicePolicy(device)
+            if (policy.apps[release.packageName] == false) return false
+            val entries = service.catalog()
+            val listed = (0 until entries.length()).any { index ->
+                entries.optJSONObject(index)?.let { Release.from(it) == release } == true
+            }
+            return listed && service.deviceCredential() == device && !owner.isInstallationChannel(release.packageName) &&
+                !owner.dpm.isApplicationHidden(owner.adminComponent, release.packageName)
         }
 
-        val tempFile = File.createTempFile("yidream_catalog_", ".apk", context.cacheDir)
+        if (release.packageName == context.packageName || !DevicePolicy.validPackageName(release.packageName) ||
+            !CatalogUpdatePolicy.isReady(release.url, release.sha256, release.version)) {
+            return@withContext SilentInstaller.Result.Failure("Mise à jour invalide.")
+        }
+        var temporaryApk: File? = null
         var connection: HttpURLConnection? = null
         try {
-            var downloadUrl = URL(apkUrl)
+            if (!authorized()) return@withContext SilentInstaller.Result.Failure("Cette mise à jour n’est pas autorisée.")
+            val apk = File.createTempFile("yidream_catalog_", ".apk", context.cacheDir)
+            temporaryApk = apk
+            var downloadUrl = URL(release.url)
             var redirects = 0
             while (true) {
-                require(downloadUrl.protocol == "https" && downloadUrl.userInfo == null) { "Source HTTPS requise." }
+                currentCoroutineContext().ensureActive()
+                require(downloadUrl.protocol == "https" && downloadUrl.host.isNotBlank() &&
+                    downloadUrl.userInfo == null) { "Source HTTPS requise." }
                 val opened = downloadUrl.openConnection() as HttpURLConnection
                 connection = opened
-                MdmService(context).authorizeDownload(opened, downloadUrl)
+                service.authorizeDownload(opened, downloadUrl)
                 opened.instanceFollowRedirects = false
                 opened.connectTimeout = 15000
                 opened.readTimeout = 20000
@@ -54,38 +77,23 @@ class CatalogInstaller(private val context: Context) {
                     break
                 }
             }
+
             val digest = MessageDigest.getInstance("SHA-256")
             requireNotNull(connection).inputStream.use { input ->
-                tempFile.outputStream().use { output ->
-                    val buffer = ByteArray(16 * 1024)
-                    var totalBytes = 0L
-                    while (true) {
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        totalBytes += count
-                        require(totalBytes <= 250L * 1024L * 1024L) { "APK trop volumineux." }
-                        digest.update(buffer, 0, count)
-                        output.write(buffer, 0, count)
-                    }
-                }
+                apk.outputStream().use { output -> copyApkBytes(input, output, digest = digest) }
             }
             val actualSha256 = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
-            if (!actualSha256.equals(expectedSha256, ignoreCase = true)) {
-                tempFile.delete()
-                return@withContext SilentInstaller.Result.Failure("La vérification de l'APK a échoué.")
+            if (actualSha256 != release.sha256) {
+                return@withContext SilentInstaller.Result.Failure("La vérification de l’APK a échoué.")
             }
-
-            PackageSessionInstaller(context).install(tempFile, expectedPackage, app.optLong("version_code", 0L))
+            PackageSessionInstaller(context).install(apk, release.packageName, release.version) { authorized() }
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (e: Exception) {
-            tempFile.delete()
-            SilentInstaller.Result.Failure(e.message ?: "Erreur inconnue")
+        } catch (_: Exception) {
+            SilentInstaller.Result.Failure("Impossible de vérifier ou d’appliquer cette mise à jour.")
         } finally {
-            tempFile.delete()
             connection?.disconnect()
+            temporaryApk?.delete()
         }
     }
-
 }
-

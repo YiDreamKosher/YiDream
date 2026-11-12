@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_confirmation_required">Connecte-toi à Internet pour confirmer l’accès de cet appareil avant d’utiliser YiDream hors connexion.</string>
+    <string name="offline_new_app_request">Demander une application</string>
+    <string name="offline_app_request">Demande d’ouverture d’application</string>
+    <string name="offline_no_apps">Aucune application installée et bloquée ne peut être demandée.</string>
+    <string name="offline_requests_hint">Les demandes enregistrées ici seront envoyées automatiquement au retour d’Internet.</string>
+    <string name="offline_request_waiting">En attente d’envoi</string>
+    <string name="offline_request_failed">Le serveur a refusé cette demande.</string>
+    <string name="offline_discard_request">Supprimer la demande refusée</string>
+    <string name="offline_queue_full">La file d’attente est pleine. Connecte-toi à Internet pour envoyer tes demandes.</string>
+</resources>

@@ -14,7 +14,7 @@
   <string name="settings_checking">בודק…</string>
   <string name="settings_up_to_date">YiDream מעודכן.</string>
   <string name="about_title">אודות</string>
-  <string name="about_filter_info">YiDream מגביל מכשיר זה בהתאם להגדרות שנקבעו על ידי המנהל: קטגוריות אפליקציות חסומות, ורק מקור ההתקנה הרשמי מורשה להוסיף אפליקציות חדשות.</string>
+  <string name="about_filter_info">YiDream מחיל את כללי מנהל המכשיר ומעדכן יישומים מותקנים ומאושרים.</string>
   <string name="about_contact_label">יצירת קשר</string>
   <string name="about_version_label">גרסה</string>
   <string name="about_remove_filter">הסר את הסינון</string>
@@ -24,7 +24,7 @@
   <string name="unlock_success">✅ הסינון הוסר.</string>
   <string name="home_protection">הגנת המכשיר</string>
   <string name="home_quick_access">גישה מהירה</string>
-  <string name="home_store_description">גילוי אפליקציות מאושרות</string>
+  <string name="home_store_description">עדכון יישומים מאושרים</string>
   <string name="home_settings_description">שפה, הגנה ועדכונים</string>
   <string name="ui_brand_caption">האזור שלי</string>
   <string name="ui_home_title">מרחב ברור.</string>

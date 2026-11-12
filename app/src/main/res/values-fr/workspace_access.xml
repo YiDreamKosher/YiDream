@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_workspace_notice">Hors connexion. Les demandes seront envoyées au retour d’Internet.</string>
+    <string name="quick_settings_summary">Ajoute YiDream au Centre de contrôle Android pour l’ouvrir depuis le volet des notifications.</string>
+    <string name="quick_settings_hide">Utiliser seulement le Centre de contrôle</string>
+    <string name="quick_settings_restore">Rétablir l’icône d’accueil</string>
+    <string name="quick_settings_add_first">Ajoute d’abord la tuile YiDream dans le Centre de contrôle, puis reviens ici.</string>
+</resources>

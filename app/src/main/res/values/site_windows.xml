@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="site_window_duration">Access duration</string>
+    <string name="site_window_permanent">Ongoing access</string>
+    <string name="site_window_24h">24 hours after approval</string>
+    <string name="site_window_trip">Until the end of my trip</string>
+    <string name="site_window_pick_date">Choose date and time</string>
+    <string name="site_window_invalid_date">Choose a valid date and time within the next 365 days.</string>
+    <string name="site_window_requested_24h">Requested for 24 hours after approval</string>
+    <string name="site_window_requested_until">Requested until %1$s</string>
+    <string name="site_window_allowed_until">Access allowed until %1$s</string>
+    <string name="site_window_previously_allowed_until">Access was approved until %1$s</string>
+    <string name="site_window_expired">Temporary access expired</string>
+</resources>

@@ -6,6 +6,22 @@ Plateforme de gestion d'appareils Android filtrés. Ce dépôt contient l'app An
 
 YiDream ouvre les onglets Accueil, Boutique, Sites et Réglages pour gérer les applications et les demandes de sites. Les informations de version et d’utilisation se trouvent dans Réglages. Le launcher musical est un projet distinct : [YZ MDM](https://github.com/YiDreamKosher/YZ-MDM). YiDream ne remplace pas l’écran d’accueil Android.
 
+## Temporary site access (v6.3.0, Android version code 22)
+
+When requesting a site, select ongoing access, 24 hours after approval, or a specific trip end date and time. The administrator approves the requested window, and the YiDream reader applies the temporary rule until its expiry. The device evaluates the saved expiry while offline. Permanent site rules resume after a temporary window ends.
+
+Administrators can save an account without an assigned phone, then use the configured device ID to generate its activation code. A pending code does not change the phone's account until it is redeemed.
+
+## Offline access and authorized updates (v6.2.0, Android version code 21)
+
+Previously approved phones can open the workspace offline for up to seven days, within their approved session's expiry. Requests to open websites and installed applications are queued on the phone and submitted when connectivity returns. An administrator reviews them in Suite. A confirmed denial is never accepted as an offline session.
+
+Under Appearance and navigation, the optional Quick Settings mode hides the launcher icon after the YiDream tile is added. Removing the tile restores the icon.
+
+On an approved phone with a valid recovery key, activation disables ADB over USB and Wi-Fi. YiDream enforces Android's unknown-source restrictions and hides detected app stores. It clears its former blanket install restriction once these safeguards are active so it can apply verified updates to itself and to already installed approved catalog apps. The filter offers offline administrator removal using the existing recovery code, with limited attempts.
+
+If a previous installation refuses the initial upgrade because of its blanket install restriction, an administrator can remove the filter with the existing recovery code and prepare the phone again in WebADB. Complete USB activation before checking the final ADB block on the phone. OEM-specific privileged installers should be checked on each supported device model.
+
 ## Device approval and remote rules (v6.1.0, Android version code 20)
 
 Prepare the phone in [YiDream Suite](https://yidreamkosher.github.io/YiDream-Suite/admin/). WebADB saves a stable device ID after applying the USB configuration. The owner can approve the prepared device. Its client can be assigned later. An approved administrator enters the account contact details and issues a single-use activation code, which can be entered on the phone or sent through the connected USB session. The app opens after the server accepts the code. New users do not need an email sign-in code. Previously approved device sessions can continue.

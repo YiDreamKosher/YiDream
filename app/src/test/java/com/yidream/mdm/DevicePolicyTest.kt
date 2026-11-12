@@ -3,6 +3,7 @@ package com.yidream.mdm
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -10,6 +11,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.net.URI
+import java.time.Instant
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -40,6 +42,56 @@ class DevicePolicyTest {
                 assertEquals("SITE_BLOCKED", error.message)
             }
         }
+    }
+
+    @Test
+    fun temporaryAccessExpiresAndUsesTheBaseRuleAtItsDeadline() {
+        val deadline = Instant.parse("2026-11-12T12:00:00Z")
+        val policy = DevicePolicy(
+            8, emptyMap(),
+            mapOf("always.example.org" to true, "blocked.example.org" to false, "private.trip.example.org" to false),
+            mapOf("always.example.org" to deadline, "blocked.example.org" to deadline, "trip.example.org" to deadline)
+        )
+        val before = deadline.minusMillis(1)
+        val trip = URI("https://news.trip.example.org/")
+        val blocked = URI("https://blocked.example.org/")
+        val permanent = URI("https://always.example.org/")
+        assertEquals(DevicePolicy.SiteAccess(true, deadline), policy.siteAccess(trip, before))
+        assertEquals(DevicePolicy.SiteAccess(true, deadline), policy.siteAccess(blocked, before))
+        assertFalse(policy.siteAccess(URI("https://private.trip.example.org/"), before).allowed)
+        assertFalse(policy.siteAccess(trip, deadline).allowed)
+        assertFalse(policy.siteAccess(blocked, deadline.plusSeconds(1)).allowed)
+        assertEquals(DevicePolicy.SiteAccess(true), policy.siteAccess(permanent, deadline))
+    }
+
+    @Test
+    fun v2PolicyRequiresAnAuthoritativeClockAndWindowRules() {
+        val value = JSONObject("""{"revision":4,"apps":{},"sites":{},"server_time":"2026-11-12T11:00:00+00:00"}""")
+        assertTrue(runCatching { DevicePolicy.parse(value, requireWindows = true) }.isFailure)
+        value.put("temporary_sites", JSONObject().put("example.org", "2026-11-12T12:00:00+00:00"))
+        val policy = DevicePolicy.parse(value, requireWindows = true)
+        assertTrue(policy.permits(URI("https://example.org/")))
+        value.remove("server_time")
+        assertTrue(runCatching { DevicePolicy.parse(value, requireWindows = true) }.isFailure)
+    }
+
+    @Test
+    fun savedWindowsRetainServerDeadlineOnlyOnTheSameBoot() {
+        val address = URI("https://trip.example.org/")
+        val value = JSONObject("""{
+            "revision":4,"apps":{},"sites":{},"server_time":"2026-11-12T11:00:00Z",
+            "temporary_sites":{"trip.example.org":"2026-11-12T11:00:10Z"}
+        }""")
+        val elapsedAtFetch = 1_000L
+        val beforeExpiry = 10_999L
+        val atExpiry = 11_000L
+        val stored = DevicePolicy.parse(value, requireWindows = true, elapsedAtFetch = elapsedAtFetch).toBootCache(4)
+        val restored = requireNotNull(DevicePolicy.restoreBootCache(stored, 4, beforeExpiry))
+        assertTrue(restored.siteAccess(address, restored.currentTime(beforeExpiry)).allowed)
+        assertFalse(restored.siteAccess(address, restored.currentTime(atExpiry)).allowed)
+        assertNull(DevicePolicy.restoreBootCache(stored, 5, beforeExpiry))
+        assertNull(DevicePolicy.restoreBootCache(stored, -1, beforeExpiry))
+        assertNull(DevicePolicy.restoreBootCache(stored, 4, elapsedAtFetch - 1))
     }
 
     @Test

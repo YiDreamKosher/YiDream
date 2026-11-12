@@ -14,7 +14,7 @@
   <string name="settings_checking">קאָנטראָלירט…</string>
   <string name="settings_up_to_date">YiDream איז אַקטואַל.</string>
   <string name="about_title">וועגן</string>
-  <string name="about_filter_info">YiDream באַגרענעצט דעם געראַט לויט דער קאָנפֿיגוראַציע וואָס דער אַדמיניסטראַטאָר האָט באַשטימט.</string>
+  <string name="about_filter_info">YiDream לייגט אָן די כּללים פֿונעם אַדמיניסטראַטאָר און דערהײַנטיקט אינסטאַלירטע, דערלויבטע אַפּס.</string>
   <string name="about_contact_label">קאָנטאַקט</string>
   <string name="about_version_label">ווערסיע</string>
   <string name="about_remove_filter">אַראָפּנעמען דעם פֿילטער</string>
@@ -24,7 +24,7 @@
   <string name="unlock_success">✅ דער פֿילטער איז אַראָפּגענומען.</string>
   <string name="home_protection">שוץ פֿונעם אַפּאַראַט</string>
   <string name="home_quick_access">שנעלער צוטריט</string>
-  <string name="home_store_description">אַנטדעקן דערלויבטע אַפּליקאַציעס</string>
+  <string name="home_store_description">דערהײַנטיקן דערלויבטע אַפּס</string>
   <string name="home_settings_description">שפּראַך, שוץ און דערהייַנטיקונגען</string>
   <string name="ui_brand_caption">מיין אָרט</string>
   <string name="ui_home_title">אַ קלאָרער אָרט.</string>

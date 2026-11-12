@@ -1,7 +1,7 @@
 {
-  "versionCode": 20,
-  "versionName": "v6.1.0",
+  "versionCode": 22,
+  "versionName": "v6.3.0",
   "apkUrl": "https://yidreamkosher.github.io/YiDream/admin/yidream.apk",
   "apkSha256": "",
-  "changelog": "Activate an approved phone with an administrator code, entered in the app or sent by USB. Manage application and YiDream browser rules for each device. Request that a website be allowed or blocked."
+  "changelog": "Request site access for 24 hours or until a selected trip end time. Temporary access expires in the YiDream reader even when the phone is offline. Administrators can prepare an account before assigning an approved phone."
 }

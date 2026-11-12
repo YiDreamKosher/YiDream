@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lockdown_admin_recovery">אַדמיניסטראַטאָר־וישאַלט</string>
+    <string name="lockdown_incomplete">מען האָט נישט געקענט באַשטעטיקן דעם שלאָס. ווענדט זיך צום אַדמיניסטראַטאָר איידער מען גיט איבער דעם טעלעפֿאָן.</string>
+    <string name="lockdown_retry_code">צו פֿיל פּרוּוון. וואַרט 15 מינוט איידער איר פּרוּווט ווידער.</string>
+</resources>

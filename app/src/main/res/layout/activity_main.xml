@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/bg_app_gradient">
+  <TextView android:id="@+id/offlineBanner" android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:layout_marginHorizontal="16dp" android:layout_marginTop="8dp" android:padding="12dp"
+      android:text="@string/offline_workspace_notice" android:visibility="gone" android:accessibilityLiveRegion="polite"
+      android:background="@drawable/bg_status_warning" android:textColor="@color/status_warning_text" android:textSize="13sp" />
   <LinearLayout android:id="@+id/compactNavigation" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingTop="8dp" android:visibility="gone">
     <TextView android:id="@+id/backToHome" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:minWidth="100dp" android:gravity="center_vertical" android:paddingHorizontal="12dp" android:background="@drawable/ui_secondary_button" android:foreground="?attr/selectableItemBackground" android:text="@string/navigation_return_home" android:textColor="@color/accent_blue" android:textStyle="bold" android:textSize="13sp" android:clickable="true" android:focusable="true" />
   </LinearLayout>
@@ -132,6 +136,15 @@
                 <RadioButton android:id="@+id/navigationHomeOption" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="52dp" android:paddingVertical="10dp" android:buttonTint="@color/accent_blue" android:text="@string/settings_navigation_home" android:textColor="@color/text_primary" android:textSize="14sp" />
               </RadioGroup>
               <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/settings_navigation_home_hint" android:textSize="11sp" android:textColor="@color/text_secondary" android:lineSpacingExtra="3dp" android:layout_marginTop="4dp" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:background="@drawable/bg_glass_card" android:padding="16dp" android:layout_marginTop="14dp">
+              <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/quick_settings_summary"
+                  android:textSize="13sp" android:textColor="@color/text_secondary" />
+              <androidx.appcompat.widget.AppCompatButton android:id="@+id/quickSettingsLauncher"
+                  android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:minHeight="48dp"
+                  android:textAllCaps="false" android:textColor="@color/accent_blue" android:background="@drawable/ui_secondary_button"
+                  android:backgroundTint="@null" app:backgroundTint="@null" />
             </LinearLayout>
           </LinearLayout>
           <LinearLayout android:id="@+id/settingsPageLanguage" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">

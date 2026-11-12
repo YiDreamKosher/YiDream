@@ -1,6 +1,7 @@
 package com.yidream.mdm
 
 import android.content.Context
+import android.os.SystemClock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -24,19 +25,39 @@ class MdmService(context: Context) {
 
     suspend fun catalog(): JSONArray = rpc("yd_device_catalog", credentials())
     suspend fun requests(): JSONArray = rpc("yd_device_requests", credentials())
-    suspend fun requestSite(address: String, reason: String, requestId: String, allowed: Boolean = true) {
-        val normalized = normalizeSite(address)
-        rpc("yd_request_site_change", credentials().put("site_url", normalized)
-            .put("request_reason", reason.trim()).put("client_request_id", requestId)
-            .put("requested_allowed", allowed))
+    suspend fun appRequests(): JSONArray = rpc("yd_device_app_requests", credentials())
+
+    internal suspend fun sendQueuedRequest(request: QueuedDeviceRequest) {
+        val (deviceToken, requestHeaders) = account.requestCredentials(request.scope)
+        val body = JSONObject().put("device_token", deviceToken).put("request_reason", request.reason)
+            .put("client_request_id", request.id)
+        when (request.kind) {
+            QueuedDeviceRequest.Kind.SITE -> {
+                body.put("site_url", request.target)
+                if (request.requestedHours != null || request.requestedUntil != null) {
+                    rpc("yd_request_site_window", body
+                        .put("requested_hours", request.requestedHours ?: JSONObject.NULL)
+                        .put("requested_until", request.requestedUntil?.toString() ?: JSONObject.NULL), requestHeaders)
+                } else {
+                    rpc("yd_request_site_change", body.put("requested_allowed", request.allowed), requestHeaders)
+                }
+            }
+            QueuedDeviceRequest.Kind.APP -> rpc("yd_request_app_access",
+                body.put("package_name", request.target), requestHeaders)
+        }
     }
 
-    internal suspend fun devicePolicy(device: Pair<String, String>): DevicePolicy =
-        DevicePolicy.parse(rpc("yd_get_device_policy", policyCredential(device)).getJSONObject(0))
+    internal suspend fun devicePolicy(device: Pair<String, String>): DevicePolicy {
+        val requestStart = SystemClock.elapsedRealtime()
+        val result = rpc("yd_get_device_policy_v2", policyCredential(device)).getJSONObject(0)
+        return DevicePolicy.parse(result, requireWindows = true, elapsedAtFetch = requestStart)
+    }
 
-    internal suspend fun reportPolicy(device: Pair<String, String>, revision: Long, applied: Boolean) {
-        rpc("yd_report_device_policy", policyCredential(device)
-            .put("policy_revision", revision).put("applied", applied))
+    internal suspend fun reportPolicy(device: Pair<String, String>, revision: Long, applied: Boolean): DevicePolicy {
+        val requestStart = SystemClock.elapsedRealtime()
+        val result = rpc("yd_report_device_policy_v2", policyCredential(device)
+            .put("policy_revision", revision).put("applied", applied)).getJSONObject(0)
+        return DevicePolicy.parse(result, requireWindows = true, elapsedAtFetch = requestStart)
     }
 
     private fun policyCredential(device: Pair<String, String>): JSONObject {
@@ -59,8 +80,8 @@ class MdmService(context: Context) {
         return JSONObject().put("device_token", account.deviceCredential()!!.second)
     }
 
-    private suspend fun rpc(name: String, input: JSONObject): JSONArray = withContext(Dispatchers.IO) {
-        val accountHeaders = account.requestHeaders()
+    private suspend fun rpc(name: String, input: JSONObject, headers: Map<String, String>? = null): JSONArray = withContext(Dispatchers.IO) {
+        val accountHeaders = headers ?: account.requestHeaders()
         val connection = URL("$SERVICE/rest/v1/rpc/$name").openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"
@@ -81,8 +102,12 @@ class MdmService(context: Context) {
                 }
                 val reason = runCatching { JSONObject(errorResponse.orEmpty()).optString("message") }.getOrNull()
                 error(when {
-                    status == 404 -> "SERVICE_NOT_READY"
+                    reason in setOf("INVALID_APP_REQUEST", "INVALID_SITE_REQUEST", "INVALID_SITE_WINDOW",
+                        "SITE_WINDOW_EXPIRED", "SITE_REQUEST_LIMIT", "APP_REQUEST_LIMIT") ->
+                        requireNotNull(reason)
                     status == 401 || status == 403 || reason == "APP_ACCESS_DENIED" -> "APP_ACCESS_DENIED"
+                    status == 404 -> "SERVICE_NOT_READY"
+                    status == 429 || status >= 500 -> "SERVICE_UNAVAILABLE"
                     else -> "SERVICE_ERROR"
                 })
             }
