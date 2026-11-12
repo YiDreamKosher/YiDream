@@ -26,11 +26,13 @@ internal class AccountGateController(
     private var task: Job? = null
     private var activation: Job? = null
     private var foreground = false
+    private var reactivationPrompt = false
     private fun <T : View> view(id: Int): T = activity.findViewById(id)
     private val code get() = view<EditText>(R.id.accountCode)
 
     fun showLogin(message: Int? = null, suppliedCode: String? = null) {
         task?.cancel()
+        reactivationPrompt = false
         setAccountScreen()
         code.setText(suppliedCode.orEmpty())
         view<Button>(R.id.accountContinue).setOnClickListener { activate() }
@@ -41,6 +43,11 @@ internal class AccountGateController(
         message?.let { showMessage(activity.getString(it), true) }
     }
 
+    fun showReactivation() {
+        showLogin()
+        reactivationPrompt = true
+    }
+
     fun resume(usbCode: String?) {
         foreground = true
         if (activation?.isActive == true) return
@@ -48,11 +55,12 @@ internal class AccountGateController(
             val replacingAccount = client.hasSession
             showLogin(suppliedCode = usbCode)
             if (replacingAccount) {
+                reactivationPrompt = true
                 showMessage(activity.getString(R.string.account_replace_prompt), false)
             } else {
                 activate()
             }
-        } else if (client.hasSession) {
+        } else if (client.hasSession && !reactivationPrompt) {
             checkSession()
         }
     }
@@ -64,6 +72,7 @@ internal class AccountGateController(
 
     private fun checkSession() {
         task?.cancel()
+        reactivationPrompt = false
         setCheckingScreen()
         view<Button>(R.id.accountRetry).setOnClickListener { checkSession() }
         view<Button>(R.id.accountOther).setOnClickListener { signOut() }
@@ -107,6 +116,7 @@ internal class AccountGateController(
             try {
                 val access = client.activateCode(normalized)
                 code.text.clear()
+                reactivationPrompt = false
                 if (foreground) authenticated(access, true)
             } catch (error: CancellationException) {
                 throw error

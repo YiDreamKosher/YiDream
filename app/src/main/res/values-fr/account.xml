@@ -25,4 +25,6 @@
     <string name="account_replace_prompt">Un code a été transmis par USB. Active-le pour remplacer le compte sur ce téléphone.</string>
     <string name="account_service_pending">Le service d’activation est momentanément indisponible. Contacte ton administrateur.</string>
     <string name="account_device_id">Identifiant de l’appareil : %1$s</string>
+    <string name="account_copy_device_id">Copier l’identifiant de l’appareil</string>
+    <string name="account_reactivate">Saisir un code d’activation</string>
 </resources>
