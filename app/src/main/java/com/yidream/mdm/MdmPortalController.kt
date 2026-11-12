@@ -38,7 +38,7 @@ import org.json.JSONObject
 internal class MdmPortalController(private val activity: AppCompatActivity, private val access: AppAccess? = null) {
     private val service = MdmService(activity)
     private val catalogScreen = CatalogScreenController(activity, service)
-    private var sitesGeneration = 0
+    private var appRequestsExpanded = false
     private val sites get() = activity.findViewById<LinearLayout>(R.id.sitesContent)
     private fun text(id: Int) = activity.getString(id)
     private fun dp(value: Int) = (value * activity.resources.displayMetrics.density).toInt()
@@ -77,6 +77,7 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
         "INVALID_SITE" -> R.string.mdm_invalid_site
         "SERVICE_NOT_READY" -> R.string.mdm_service_missing
         "REQUEST_QUEUE_FULL" -> R.string.offline_queue_full
+        "REQUESTS_DISABLED" -> R.string.device_requests_disabled
         "APP_ACCESS_DENIED", "SESSION_CHANGED" -> R.string.account_session_expired
         else -> R.string.mdm_network_error
     })
@@ -109,58 +110,85 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
         }
         dialog.show()
     }
-    fun refreshStore() = catalogScreen.load { pair() }
+    fun refreshStore() {
+        refreshAppRequests()
+        catalogScreen.load { pair() }
+    }
     fun pauseStoreUpdates() = catalogScreen.pause()
-    fun refreshSites() {
-        val generation = ++sitesGeneration
-        val content = activity.findViewById<LinearLayout>(R.id.sitesContent) ?: return
-        fun current() = generation == sitesGeneration && activity.findViewById<LinearLayout>(R.id.sitesContent) === content
+
+    private fun requestsAllowed(kind: QueuedDeviceRequest.Kind): Boolean {
+        val policy = RemoteDevicePolicy.current(activity) ?: return false
+        return when (kind) {
+            QueuedDeviceRequest.Kind.SITE -> policy.canRequestSites
+            QueuedDeviceRequest.Kind.APP -> policy.appRequestsEnabled
+        }
+    }
+
+    fun refreshSites() = refreshRequests(QueuedDeviceRequest.Kind.SITE)
+    fun refreshAppRequests() = refreshRequests(QueuedDeviceRequest.Kind.APP)
+
+    private fun refreshRequests(kind: QueuedDeviceRequest.Kind) {
+        val siteRequests = kind == QueuedDeviceRequest.Kind.SITE
+        val id = if (siteRequests) R.id.sitesContent else R.id.appRequestsContent
+        val content = activity.findViewById<LinearLayout>(id) ?: return
         content.removeAllViews()
-        label(content, text(R.string.managed_sites_title), true)
+        val webAvailable = RemoteDevicePolicy.current(activity)?.webEnabled != false
+        if ((siteRequests && !webAvailable) || (!siteRequests && !service.paired)) return
         val online = access?.offline != true && InternetReachability.hasInternetRoute(activity)
-        if (online) label(content, text(R.string.managed_sites_limits))
-        if (needsPairing(content)) return
-        if (online) action(content, text(R.string.managed_sites_open_approved)) { openSite() }
-        action(content, text(R.string.managed_sites_new_request), true) { requestDialog() }
-        action(content, text(R.string.offline_new_app_request), true) { chooseApp() }
+        if (siteRequests) {
+            label(content, text(R.string.managed_sites_title), true)
+            if (online) label(content, text(R.string.managed_sites_limits))
+            if (needsPairing(content)) return
+            if (online) action(content, text(R.string.managed_sites_open_approved)) { openSite() }
+            if (requestsAllowed(kind)) action(content, text(R.string.managed_sites_new_request), true) { requestDialog() }
+        } else {
+            if (requestsAllowed(kind)) action(content, text(R.string.offline_new_app_request), true) { chooseApp() }
+            action(content, text(R.string.device_app_requests_history), true) {
+                appRequestsExpanded = !appRequestsExpanded
+                refreshAppRequests()
+            }
+            if (!appRequestsExpanded) return
+        }
+        val first = content.getChildAt(0)
+        fun current() = activity.findViewById<LinearLayout>(id) === content && content.getChildAt(0) === first
+        if (!requestsAllowed(kind) && RemoteDevicePolicy.current(activity) != null) {
+            label(content, text(R.string.device_requests_disabled))
+        }
         val state = label(content, text(if (online) R.string.mdm_loading else R.string.offline_requests_hint))
         activity.lifecycleScope.launch {
             try {
                 val scope = access?.scope()
                 val pending = withContext(Dispatchers.IO) {
-                    if (scope != null) OfflineRequests.pending(activity, scope) else emptyList()
+                    if (scope != null) OfflineRequests.pending(activity, scope).filter { it.kind == kind } else emptyList()
                 }
                 if (!current()) return@launch
                 for (request in pending) {
-                    val name = if (request.kind == QueuedDeviceRequest.Kind.APP) appLabel(request.target) else request.target
+                    val name = if (siteRequests) request.target else appLabel(request.target)
                     val status = text(if (request.failed) R.string.offline_request_failed else R.string.offline_request_waiting)
                     label(content, listOfNotNull(name, status, requestedWindow(request.requestedHours, request.requestedUntil)).joinToString("\n"))
                     if (request.failed) action(content, text(R.string.offline_discard_request), true) {
                         activity.lifecycleScope.launch {
                             withContext(Dispatchers.IO) { OfflineRequests.discard(activity, request) }
-                            if (current()) refreshSites()
+                            if (current()) refreshRequests(kind)
                         }
                     }
                 }
                 if (online) {
-                    val requests = service.requests()
+                    val requests = if (siteRequests) service.requests() else service.appRequests()
                     if (!current()) return@launch
                     content.removeView(state)
                     val policy = RemoteDevicePolicy.current(activity)
                     for (i in 0 until requests.length()) {
                         val item = requests.getJSONObject(i)
-                        renderSiteRequest(item, status(item), policy)
+                        if (siteRequests) {
+                            renderSiteRequest(item, status(item), policy)
+                        } else {
+                            val name = appLabel(item.getString("package_name"))
+                            label(content, listOf(name, status(item), item.optString("admin_note"))
+                                .filter { it.isNotBlank() }.joinToString("\n"))
+                        }
                     }
-                    val appRequests = service.appRequests()
-                    if (!current()) return@launch
-                    for (i in 0 until appRequests.length()) {
-                        val item = appRequests.getJSONObject(i)
-                        val name = appLabel(item.getString("package_name"))
-                        val note = item.optString("admin_note")
-                        label(content, listOf(name, text(R.string.offline_app_request), status(item), note)
-                            .filter { it.isNotBlank() }.joinToString("\n"))
-                    }
-                    if (pending.isEmpty() && requests.length() == 0 && appRequests.length() == 0) {
+                    if (pending.isEmpty() && requests.length() == 0) {
                         label(content, text(R.string.mdm_empty_requests))
                     }
                 }
@@ -172,7 +200,7 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
                     else label(content, message(error))
                 }
             }
-            if (current()) action(content, text(R.string.mdm_refresh), true) { refreshSites() }
+            if (current()) action(content, text(R.string.mdm_refresh), true) { refreshRequests(kind) }
         }
     }
 
@@ -203,6 +231,7 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
     }.getOrDefault(packageName)
 
     private fun chooseApp() {
+        if (!requestsAllowed(QueuedDeviceRequest.Kind.APP)) return
         val manager = DeviceOwnerManager(activity)
         val packages = activity.packageManager
         @Suppress("DEPRECATION")
@@ -220,8 +249,7 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
                 manager.isAppBlocked(name)
         }.map { it.packageName to packages.getApplicationLabel(it).toString() }.sortedBy { it.second.lowercase() }
         if (apps.isEmpty()) {
-            AlertDialog.Builder(activity).setTitle(R.string.offline_new_app_request).setMessage(R.string.offline_no_apps)
-                .setPositiveButton(android.R.string.ok, null).show()
+            requestDialog(forApp = true)
             return
         }
         AlertDialog.Builder(activity).setTitle(R.string.offline_new_app_request)
@@ -229,6 +257,7 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
                 val (name, label) = apps[position]
                 requestDialog(app = name, appName = label)
             }
+            .setNeutralButton(R.string.device_app_request_other) { _, _ -> requestDialog(forApp = true) }
             .setNegativeButton(android.R.string.cancel, null).show()
     }
     internal fun renderSiteRequest(item: JSONObject, status: String, policy: DevicePolicy? = null) {
@@ -287,6 +316,7 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
     }
 
     private fun openSite(address: String? = null) {
+        if (RemoteDevicePolicy.current(activity)?.webEnabled == false) return
         activity.startActivity(Intent(activity, ManagedBrowserActivity::class.java).apply {
             if (address != null) putExtra("site_address", address)
         })
@@ -314,10 +344,17 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
         return time > now && time <= now.plus(Duration.ofDays(365))
     }
 
-    private fun requestDialog(app: String? = null, appName: String? = null) {
+    private fun requestDialog(app: String? = null, appName: String? = null, forApp: Boolean = app != null) {
+        val kind = if (forApp) QueuedDeviceRequest.Kind.APP else QueuedDeviceRequest.Kind.SITE
+        if (!requestsAllowed(kind)) return
         val scope = access?.scope() ?: return
         val form = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
-        val address = EditText(activity).apply { hint = text(R.string.mdm_site_url); inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI; setSingleLine(); styleInput(this) }
+        val address = EditText(activity).apply {
+            hint = text(if (forApp) R.string.device_app_request_target else R.string.mdm_site_url)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine()
+            styleInput(this)
+        }
         val reason = EditText(activity).apply {
             hint = text(R.string.mdm_reason); maxLines = 4
             filters = arrayOf(InputFilter.LengthFilter(2000))
@@ -333,8 +370,8 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
             }
             minimumHeight = dp(48)
         }
-        if (app == null) {
-            form.addView(address)
+        if (app == null) form.addView(address)
+        if (!forApp) {
             form.addView(blockSite)
             val windowControls = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
             form.addView(windowControls)
@@ -365,36 +402,45 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
         }
         form.addView(reason, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
         val requestId = UUID.randomUUID().toString()
-        val dialog = AlertDialog.Builder(activity).setTitle(appName ?: text(R.string.managed_sites_new_request))
+        val dialog = AlertDialog.Builder(activity).setTitle(appName ?: text(
+            if (forApp) R.string.offline_new_app_request else R.string.managed_sites_new_request
+        ))
             .setView(ScrollView(activity).apply { addView(form) })
             .setPositiveButton(R.string.mdm_send, null).setNegativeButton(android.R.string.cancel, null).create()
         dialog.setOnShowListener {
             val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             button.setOnClickListener {
-                val target = try { app ?: MdmService.normalizeSite(address.text.toString()) }
-                catch (_: Exception) {
-                    address.error = text(R.string.mdm_invalid_site)
+                if (!requestsAllowed(kind)) {
+                    Toast.makeText(activity, R.string.device_requests_disabled, Toast.LENGTH_LONG).show()
                     return@setOnClickListener
                 }
-                val mode = if (app == null && !blockSite.isChecked) duration.selectedItemPosition else 0
+                val target = try {
+                    app ?: if (forApp) MdmService.normalizeAppPackage(address.text.toString())
+                        else MdmService.normalizeSite(address.text.toString())
+                }
+                catch (_: Exception) {
+                    address.error = text(if (forApp) R.string.device_app_request_invalid else R.string.mdm_invalid_site)
+                    return@setOnClickListener
+                }
+                val mode = if (!forApp && !blockSite.isChecked) duration.selectedItemPosition else 0
                 val until = windowEnd.takeIf { mode == 2 }
                 if (mode == 2 && (until == null || !validSiteWindowEnd(until))) {
                     Toast.makeText(activity, R.string.site_window_invalid_date, Toast.LENGTH_LONG).show()
                     return@setOnClickListener
                 }
                 val request = QueuedDeviceRequest(scope, requestId, target, reason.text.toString().trim(),
-                    if (app == null) QueuedDeviceRequest.Kind.SITE else QueuedDeviceRequest.Kind.APP,
+                    kind,
                     allowed = !blockSite.isChecked, requestedHours = 24.takeIf { mode == 1 }, requestedUntil = until)
                 button.isEnabled = false
                 activity.lifecycleScope.launch {
                     try {
                         withContext(Dispatchers.IO) { OfflineRequests.enqueue(activity, request) }
                         dialog.dismiss()
-                        val view = activity.findViewById<View>(R.id.sitesContent)
-                        refreshSites()
+                        if (forApp) appRequestsExpanded = true
+                        refreshRequests(kind)
                         if (InternetReachability.hasInternetRoute(activity)) {
                             withContext(Dispatchers.IO) { OfflineRequests.flush(activity) }
-                            if (activity.findViewById<View>(R.id.sitesContent) === view) refreshSites()
+                            refreshRequests(kind)
                         }
                     } catch (error: CancellationException) {
                         throw error

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="device_requests_disabled">מנהל המערכת השבית בקשות מסוג זה במכשיר הזה.</string>
+    <string name="device_app_requests_history">היסטוריית בקשות לאפליקציות</string>
+    <string name="device_app_request_other">אפליקציה אחרת</string>
+    <string name="device_app_request_target">מזהה חבילה או קישור ל־Google Play</string>
+    <string name="device_app_request_invalid">יש להזין מזהה חבילה או קישור תקין ל־Google Play.</string>
+    <string name="device_install_approved_app">התקנת האפליקציה שאושרה</string>
+</resources>

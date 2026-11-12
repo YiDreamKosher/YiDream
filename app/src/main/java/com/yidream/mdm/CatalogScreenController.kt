@@ -146,6 +146,7 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
 
     private fun installedVersion(pkg: String): Long? {
         if (pkg == activity.packageName || !DevicePolicy.validPackageName(pkg) ||
+            RemoteDevicePolicy.current(activity)?.allowsApp(pkg) == false ||
             deviceOwner.isInstallationChannel(pkg) || deviceOwner.isAppBlocked(pkg)) return null
         return try {
             @Suppress("DEPRECATION") val info = activity.packageManager.getPackageInfo(pkg, 0)
@@ -160,6 +161,10 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
 
     private fun ready(app: JSONObject) = CatalogUpdatePolicy.isReady(app.optString("apk_url"), app.optString("sha256"), app.optLong("version_code"))
     private fun needsUpdate(app: JSONObject) = CatalogUpdatePolicy.shouldUpdate(installedVersion(app.optString("package_name")), app.optLong("version_code"))
+    private fun firstInstallApproved(pkg: String): Boolean =
+        pkg != activity.packageName && DevicePolicy.validPackageName(pkg) &&
+            !deviceOwner.isInstallationChannel(pkg) && !deviceOwner.isAppBlocked(pkg) &&
+            RemoteDevicePolicy.current(activity)?.apps?.get(pkg) == true
 
     fun load(onPair: () -> Unit) {
         val target = container ?: return
@@ -183,7 +188,10 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
                 if (request != generation || container !== target) return@launch
                 intro.removeView(state)
                 val apps = (0 until response.length()).mapNotNull { response.optJSONObject(it) }
-                    .filter { installedVersion(it.optString("package_name")) != null }
+                    .filter {
+                        val pkg = it.optString("package_name")
+                        installedVersion(pkg) != null || firstInstallApproved(pkg)
+                    }
                 val updates = apps.filter { ready(it) && needsUpdate(it) }
                 if (updates.isNotEmpty()) {
                     action(intro, text(R.string.store_update_all) + " (" + updates.size + ")", owner && !installing) { b -> batch(updates, b) }
@@ -203,16 +211,20 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
     /** Renders the same catalog decisions independently of fetching the catalog. */
     internal fun renderAppCard(app: JSONObject, owner: Boolean) {
         val pkg = app.optString("package_name")
-        val installed = installedVersion(pkg) ?: return
+        val installed = installedVersion(pkg)
+        if (installed == null && !firstInstallApproved(pkg)) return
         val box = card()
         val available = app.optLong("version_code")
         appHeading(box, app)
         if (app.optString("description").isNotBlank()) label(box, app.optString("description"))
         val versionName = app.optString("version_name").takeUnless { it.isBlank() || it == "null" } ?: available.toString()
-        label(box, activity.getString(R.string.store_installed_version, installedName(pkg, installed)), 12f)
+        if (installed != null) label(box, activity.getString(R.string.store_installed_version, installedName(pkg, installed)), 12f)
         if (available > 0L) label(box, activity.getString(R.string.store_available_version, versionName), 12f)
         when {
             !ready(app) -> label(box, text(R.string.store_apk_missing), 13f)
+            installed == null -> action(box, text(R.string.device_install_approved_app), owner && !installing) {
+                b -> batch(listOf(app), b)
+            }
             CatalogUpdatePolicy.shouldUpdate(installed, available) -> action(box, text(R.string.store_update), owner && !installing) { b -> batch(listOf(app), b) }
             else -> {
                 label(box, text(R.string.store_catalog_current), 12f, Color.rgb(29, 130, 88))

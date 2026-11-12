@@ -2,11 +2,15 @@ package com.yidream.mdm
 
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.content.pm.ResolveInfo
 import android.os.Bundle
 import android.os.UserManager
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -97,6 +101,34 @@ class LockdownAndTileTest {
             context.packageManager.getComponentEnabledSetting(launcher))
     }
 
+    @Test fun remoteClassificationCanRestoreItsOwnHiddenAppAndKeepOtherBlocks() = runBlocking {
+        val owner = configureOwner()
+        val waze = "com.waze"
+        val player = "com.rhmsoft.pulsar"
+        val notes = "com.android.notes"
+        val systemApp = "com.vendor.system"
+        val previouslyHidden = "com.example.previouslyhidden"
+        installLaunchable(waze)
+        installLaunchable(player)
+        installLaunchable(notes, ApplicationInfo.FLAG_SYSTEM)
+        installLaunchable(systemApp, ApplicationInfo.FLAG_SYSTEM)
+        installLaunchable(previouslyHidden)
+        assertTrue(owner.setAppBlocked(previouslyHidden, true))
+
+        val mp3 = DevicePolicy(1, emptyMap(), emptyMap(), deviceProfile = "mp3")
+        assertTrue(owner.applyRemoteAppPolicy(mp3) {})
+        assertTrue(owner.isAppBlocked(waze))
+        assertFalse(owner.isAppBlocked(player))
+        assertFalse(owner.isAppBlocked(notes))
+        assertFalse(owner.isAppBlocked(systemApp))
+        assertTrue(owner.applyRemoteAppPolicy(mp3.copy(deviceProfile = "qin")) {})
+        assertFalse(owner.isAppBlocked(waze))
+        assertTrue(owner.isAppBlocked(previouslyHidden))
+
+        assertTrue(owner.applyRemoteAppPolicy(mp3.copy(apps = mapOf(waze to true, "com.example.future" to true))) {})
+        assertFalse(owner.isAppBlocked(waze))
+    }
+
     private fun configureOwner(legacyInstallLock: Boolean = false): DeviceOwnerManager {
         val owner = DeviceOwnerManager(context)
         shadowOf(owner.dpm).setDeviceOwner(owner.adminComponent)
@@ -115,5 +147,31 @@ class LockdownAndTileTest {
             }
         }
         shadowOf(context.packageManager).installPackage(info)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun installLaunchable(name: String, additionalFlags: Int = 0) {
+        val app = ApplicationInfo().apply {
+            packageName = name
+            flags = ApplicationInfo.FLAG_INSTALLED or additionalFlags
+            enabled = true
+        }
+        val activity = ActivityInfo().apply {
+            packageName = name
+            this.name = "$name.MainActivity"
+            applicationInfo = app
+            enabled = true
+            exported = true
+        }
+        val packages = shadowOf(context.packageManager)
+        packages.installPackage(PackageInfo().apply {
+            packageName = name
+            applicationInfo = app
+            activities = arrayOf(activity)
+        })
+        packages.addResolveInfoForIntent(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),
+            ResolveInfo().apply { activityInfo = activity }
+        )
     }
 }

@@ -39,6 +39,8 @@ class MainActivity : AppCompatActivity() {
     private var restoredTab: String? = null
     private var restoredSettingsPage: String? = null
     private var navigationBackCallback: OnBackPressedCallback? = null
+    private var visiblePolicy: DevicePolicy? = null
+    private val webAvailable get() = visiblePolicy?.webEnabled != false
 
     private lateinit var pages: Map<String, View>
     private lateinit var tabs: Map<String, View>
@@ -86,6 +88,7 @@ class MainActivity : AppCompatActivity() {
         OfflineRequests.schedule(applicationContext)
         mainVisible = true
         selectedTab = MainNavigation.restore(restoredTab)
+        visiblePolicy = RemoteDevicePolicy.current(this)
 
         pages = mapOf(
             "home" to findViewById(R.id.pageHome),
@@ -166,7 +169,24 @@ class MainActivity : AppCompatActivity() {
             appUpdates.checkAvailability { available ->
                 if (mainVisible && settingsMenu === currentSettings) currentSettings.setUpdateAvailable(available)
             }
-            RemoteDevicePolicy.start(applicationContext)
+            RemoteDevicePolicy.start(applicationContext, ::updateRequestNavigation)
+        }
+    }
+
+    private fun updateRequestNavigation(policy: DevicePolicy) {
+        if (!mainVisible) return
+        val previous = visiblePolicy
+        val webChanged = webAvailable != policy.webEnabled
+        val sitesChanged = previous?.canRequestSites != policy.canRequestSites ||
+            previous?.sites != policy.sites || previous?.temporarySites != policy.temporarySites
+        val appsChanged = previous?.deviceProfile != policy.deviceProfile || previous?.apps != policy.apps
+        val appRequestsChanged = previous?.appRequestsEnabled != policy.appRequestsEnabled
+        visiblePolicy = policy
+        when {
+            webChanged && !webAvailable && selectedTab == "sites" -> selectTab("store")
+            webChanged || (sitesChanged && selectedTab == "sites") ||
+                (appsChanged && selectedTab == "store") -> selectTab(selectedTab)
+            appRequestsChanged && selectedTab == "store" -> portal.refreshAppRequests()
         }
     }
 
@@ -199,7 +219,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun selectTab(requestedKey: String) {
         if (!mainVisible) return
-        val key = MainNavigation.restore(requestedKey)
+        val key = MainNavigation.restore(requestedKey, webAvailable)
         if (key != selectedTab && ::settingsMenu.isInitialized) settingsMenu.open(null)
         selectedTab = key
         applyNavigationStyle()
@@ -249,6 +269,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.navigationBar).visibility = if (bottomBar) View.VISIBLE else View.GONE
         findViewById<View>(R.id.compactNavigation).visibility =
             if (!bottomBar && selectedTab != "home") View.VISIBLE else View.GONE
+        findViewById<View>(R.id.homeOpenSites).visibility = if (webAvailable) View.VISIBLE else View.GONE
+        tabs["sites"]?.visibility = if (webAvailable) View.VISIBLE else View.GONE
     }
 
     private fun setupQuickSettingsLaunch() {
