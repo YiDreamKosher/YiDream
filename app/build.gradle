@@ -13,6 +13,7 @@ android {
         targetSdk 34
         versionCode 23
         versionName "v6.4.0"
+        versionName "v6.3.1"
     }
 
     signingConfigs {

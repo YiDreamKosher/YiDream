@@ -10,8 +10,13 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
+import java.io.IOException
+import java.net.ConnectException
 import java.net.HttpURLConnection
+import java.net.NoRouteToHostException
+import java.net.SocketTimeoutException
 import java.net.URL
+import java.net.UnknownHostException
 import java.security.KeyStore
 import java.time.Instant
 import java.util.Locale
@@ -59,12 +64,16 @@ internal object AppAccountDependencies {
 }
 
 /** Only ciphertext and its random GCM IV are persisted; the AES key never leaves Android Keystore. */
-internal class AppSessionStore(context: Context, requests: Boolean = false) {
+internal class AppSessionStore(
+    context: Context,
+    requests: Boolean = false,
+    private val testKey: (() -> SecretKey)? = null
+) {
     private val preferences = context.getSharedPreferences(
         if (requests) "yidream_offline_requests" else "yidream_account_session", Context.MODE_PRIVATE
     )
     private val keyAlias = if (requests) "yidream.app.requests.aes.v1" else "yidream.app.account.aes.v1"
-    private fun key(): SecretKey = synchronized(keyLock) {
+    private fun key(): SecretKey = testKey?.invoke() ?: synchronized(storageLock) {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(keyAlias, null) as? SecretKey) ?: KeyGenerator.getInstance(
             KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
@@ -76,25 +85,40 @@ internal class AppSessionStore(context: Context, requests: Boolean = false) {
     }
 
     fun read(): JSONObject? {
-        val encrypted = preferences.getString("ciphertext", null) ?: return null
+        // Use a single snapshot so a concurrent write cannot pair ciphertext with a different IV.
+        val saved = preferences.all
+        val encrypted = saved["ciphertext"] as? String ?: return null
+        val iv = saved["iv"]
         return try {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128,
-                Base64.decode(preferences.getString("iv", ""), Base64.NO_WRAP)))
+                Base64.decode(iv as String, Base64.NO_WRAP)))
             JSONObject(String(cipher.doFinal(Base64.decode(encrypted, Base64.NO_WRAP)), Charsets.UTF_8))
-        } catch (_: Exception) { clear(); null }
+        } catch (_: Exception) {
+            // A failed read of an old record must not erase a replacement session.
+            synchronized(storageLock) {
+                val current = preferences.all
+                if (current["ciphertext"] == encrypted && current["iv"] == iv) clear()
+            }
+            null
+        }
     }
 
     fun write(value: JSONObject) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val encrypted = cipher.doFinal(value.toString().toByteArray(Charsets.UTF_8))
-        check(preferences.edit().putString("ciphertext", Base64.encodeToString(encrypted, Base64.NO_WRAP))
-            .putString("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP)).commit()) { "SESSION_STORAGE_FAILED" }
+        synchronized(storageLock) {
+            check(preferences.edit().putString("ciphertext", Base64.encodeToString(encrypted, Base64.NO_WRAP))
+                .putString("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP)).commit()) { "SESSION_STORAGE_FAILED" }
+        }
     }
 
-    fun clear() { preferences.edit().clear().commit() }
-    companion object { private val keyLock = Any() }
+    fun clear() {
+        synchronized(storageLock) { preferences.edit().clear().commit() }
+    }
+
+    companion object { private val storageLock = Any() }
 }
 
 internal class AccountRequestException(val status: Int, val reason: String) : Exception(reason)
@@ -129,14 +153,21 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
     }
 
     override suspend fun validateSession(): AppAccess {
-        if (!InternetReachability.isOnline(context)) {
+        if (!InternetReachability.hasInternetRoute(context)) {
             return offlineAccess() ?: error("OFFLINE_CONFIRMATION_REQUIRED")
         }
-        return validateOnlineSession()
+        return try {
+            validateOnlineSession()
+        } catch (error: Exception) {
+            if (error !is ConnectException && error !is NoRouteToHostException &&
+                error !is SocketTimeoutException && error !is UnknownHostException
+            ) throw error
+            offlineAccess() ?: throw error
+        }
     }
 
     internal suspend fun validateOnlineSession(): AppAccess {
-        check(InternetReachability.isOnline(context)) { "OFFLINE_CONFIRMATION_REQUIRED" }
+        check(InternetReachability.hasInternetRoute(context)) { "OFFLINE_CONFIRMATION_REQUIRED" }
         val session = validSession()
         return try {
             val deviceId = session.optString("device_id")
@@ -283,18 +314,24 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
             extraHeaders.forEach { (name, value) -> connection.setRequestProperty(name, value) }
             connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
-            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val response = stream?.bufferedReader()?.use { reader ->
-                val buffer = CharArray(maxResponseChars + 1)
-                var length = 0
-                while (length < buffer.size) {
-                    val count = reader.read(buffer, length, buffer.size - length)
-                    if (count == -1) break
-                    length += count
-                }
-                check(length <= maxResponseChars) { "RESPONSE_TOO_LARGE" }
-                String(buffer, 0, length)
-            }.orEmpty()
+            if (status == 401 || status == 403) throw AccountRequestException(status, "APP_ACCESS_DENIED")
+            val response = try {
+                val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                stream?.bufferedReader()?.use { reader ->
+                    val buffer = CharArray(maxResponseChars + 1)
+                    var length = 0
+                    while (length < buffer.size) {
+                        val count = reader.read(buffer, length, buffer.size - length)
+                        if (count == -1) break
+                        length += count
+                    }
+                    check(length <= maxResponseChars) { "RESPONSE_TOO_LARGE" }
+                    String(buffer, 0, length)
+                }.orEmpty()
+            } catch (error: IOException) {
+                if (status !in 200..299) throw AccountRequestException(status, "REQUEST_FAILED")
+                throw error
+            }
             if (status !in 200..299) {
                 val error = runCatching { JSONObject(response) }.getOrNull()
                 throw AccountRequestException(status, error?.optString("message")?.ifBlank { null }

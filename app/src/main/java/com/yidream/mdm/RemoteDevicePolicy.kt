@@ -238,7 +238,7 @@ internal object RemoteDevicePolicy {
         val service = MdmService(context)
         val device = service.deviceCredential() ?: return PolicySync.NotEnrolled
         if (!owner.isDeviceOwner()) return PolicySync.NotEnrolled
-        if (!InternetReachability.isOnline(context)) return cachedForReader(context, device)
+        if (!InternetReachability.hasInternetRoute(context)) return cachedForReader(context, device)
         return try {
             if (renewSession) AppAccountService(context).validateSession()
             val policy = service.devicePolicy(device)
