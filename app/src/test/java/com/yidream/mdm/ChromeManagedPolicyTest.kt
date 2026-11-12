@@ -3,7 +3,6 @@ package com.yidream.mdm
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.os.Bundle
-import android.webkit.WebView
 import org.json.JSONArray
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -14,25 +13,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.annotation.Implementation
-import org.robolectric.annotation.Implements
 import org.robolectric.shadows.ShadowWebView
 import java.time.Instant
 
-@Implements(WebView::class)
-class ManagedChromeWebViewShadow : ShadowWebView() {
-    companion object {
-        var provider: PackageInfo? = null
-
-        @JvmStatic
-        @Implementation
-        protected fun getCurrentWebViewPackage(): PackageInfo? = provider
-
-    }
-}
-
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32], shadows = [ManagedChromeWebViewShadow::class])
+@Config(sdk = [32])
 class ChromeManagedPolicyTest {
     private val context get() = RuntimeEnvironment.getApplication()
     private val chrome = ChromeManagedPolicy.PACKAGE_NAME
@@ -84,11 +69,11 @@ class ChromeManagedPolicyTest {
         assertFalse(ChromeManagedPolicy.canManage(context))
         val current = installChrome("86.0.0.0")
         assertTrue(ChromeManagedPolicy.canManage(context))
-        ManagedChromeWebViewShadow.provider = current
+        ShadowWebView.setCurrentWebViewPackage(current)
         try {
             assertFalse(ChromeManagedPolicy.canManage(context))
         } finally {
-            ManagedChromeWebViewShadow.provider = null
+            ShadowWebView.setCurrentWebViewPackage(null)
         }
     }
 
