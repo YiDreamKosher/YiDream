@@ -149,6 +149,7 @@ class LockdownAndTileTest {
         return owner
     }
 
+    @Suppress("DEPRECATION")
     private fun installLaunchable(name: String, additionalFlags: Int = 0) {
         val app = ApplicationInfo().apply {
             packageName = name
@@ -169,10 +170,10 @@ class LockdownAndTileTest {
         }
         val packages = shadowOf(context.packageManager)
         packages.installPackage(info)
-        packages.addIntentFilterForActivity(
-            ComponentName(name, activity.name),
-            android.content.IntentFilter(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
-        )
+        val launchIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        packages.addResolveInfoForIntent(launchIntent, ResolveInfo().apply { activityInfo = activity })
+        assertTrue(context.packageManager.queryIntentActivities(launchIntent, PackageManager.MATCH_UNINSTALLED_PACKAGES)
+            .any { it.activityInfo.packageName == name })
     }
 
     private fun installStore() {
