@@ -12,7 +12,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
@@ -88,19 +87,14 @@ class LockdownAndTileTest {
         assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
             context.packageManager.getComponentEnabledSetting(launcher))
 
-        val tile = Robolectric.buildService(YiDreamTileService::class.java).create()
-        try {
-            tile.get().onTileAdded()
-            assertTrue(launch.hideWhenReady())
-            assertTrue(QuickSettingsLaunch(context).launcherHidden)
+        launch.rememberTile(true)
+        assertTrue(launch.hideWhenReady())
+        assertTrue(QuickSettingsLaunch(context).launcherHidden)
 
-            tile.get().onTileRemoved()
-            assertFalse(QuickSettingsLaunch(context).hideWhenReady())
-            assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
-                context.packageManager.getComponentEnabledSetting(launcher))
-        } finally {
-            tile.destroy()
-        }
+        launch.rememberTile(false)
+        assertFalse(QuickSettingsLaunch(context).hideWhenReady())
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
+            context.packageManager.getComponentEnabledSetting(launcher))
     }
 
     private fun configureOwner(legacyInstallLock: Boolean = false): DeviceOwnerManager {
