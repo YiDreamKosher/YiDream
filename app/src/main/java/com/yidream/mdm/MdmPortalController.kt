@@ -3,9 +3,11 @@ package com.yidream.mdm
 import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.text.InputFilter
 import android.view.View
 import android.widget.AdapterView
@@ -27,6 +29,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.URI
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
@@ -147,9 +150,10 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
                     if (!current()) return@launch
                     content.removeView(state)
                     val policy = RemoteDevicePolicy.current(activity)
+                    val chromeAvailable = policy?.let { DeviceOwnerManager(activity).canOpenManagedChrome(it) } == true
                     for (i in 0 until requests.length()) {
                         val item = requests.getJSONObject(i)
-                        renderSiteRequest(item, status(item), policy)
+                        renderSiteRequest(item, status(item), policy, chromeAvailable)
                     }
                     val appRequests = service.appRequests()
                     if (!current()) return@launch
@@ -231,7 +235,9 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
             }
             .setNegativeButton(android.R.string.cancel, null).show()
     }
-    internal fun renderSiteRequest(item: JSONObject, status: String, policy: DevicePolicy? = null) {
+    internal fun renderSiteRequest(
+        item: JSONObject, status: String, policy: DevicePolicy? = null, chromeAvailable: Boolean = false
+    ) {
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(18), dp(18), dp(18))
@@ -280,9 +286,30 @@ internal class MdmPortalController(private val activity: AppCompatActivity, priv
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
         }
         val site = item.getString("site_url")
-        if (runCatching { policy?.permits(java.net.URI(site)) == true }.getOrDefault(false)) {
-            val open = action(card, text(R.string.managed_sites_open), true) { openSite(site) }
+        val address = runCatching { URI(site) }.getOrNull()
+        if (address != null && policy?.permits(address) == true) {
+            val chrome = chromeAvailable && policy.copy(temporarySites = emptyMap()).permits(address)
+            val label = if (chrome) R.string.managed_sites_open_chrome else R.string.managed_sites_open
+            val open = action(card, text(label), true) {
+                if (!chrome || !openInManagedChrome(address)) openSite(site)
+            }
             (open.layoutParams as LinearLayout.LayoutParams).apply { topMargin = dp(12); bottomMargin = 0 }
+        }
+    }
+
+    private fun openInManagedChrome(address: URI): Boolean {
+        val current = RemoteDevicePolicy.current(activity) ?: return false
+        if (!current.copy(temporarySites = emptyMap()).permits(address) ||
+            !DeviceOwnerManager(activity).canOpenManagedChrome(current)) return false
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(address.toASCIIString()))
+            .setPackage(ChromeManagedPolicy.PACKAGE_NAME)
+        return try {
+            activity.startActivity(intent)
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        } catch (_: SecurityException) {
+            false
         }
     }
 

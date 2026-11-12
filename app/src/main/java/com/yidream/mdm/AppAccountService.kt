@@ -146,6 +146,7 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
                 val session = JSONObject().put("kind", "code").put("app_token", appToken)
                     .put("expires_at", expiresAt).put("device_id", access.deviceId).put("device_token", deviceToken)
                 store.write(OfflineAccountLease.confirm(context, session, access))
+                DeviceOwnerManager(context).closeManagedChrome()
                 context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
                 access
             }
@@ -274,6 +275,7 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
 
     private fun clearLocal() {
         store.clear()
+        DeviceOwnerManager(context).closeManagedChrome()
         // A device credential is not a policy. Forgetting it never changes Device Owner or filtering.
         context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
     }
@@ -289,9 +291,13 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
 
     internal suspend fun saveDeviceCredential(value: JSONObject) = sessionLock.withLock {
         val session = store.read() ?: error("SIGN_IN_REQUIRED")
+        val deviceId = value.getString("device_id")
+        val deviceToken = value.getString("token")
+        val deviceChanged = session.optString("device_id") != deviceId || session.optString("device_token") != deviceToken
         session.remove("confirmed_access")
-        session.put("device_id", value.getString("device_id")).put("device_token", value.getString("token"))
+        session.put("device_id", deviceId).put("device_token", deviceToken)
         store.write(session)
+        if (deviceChanged) DeviceOwnerManager(context).closeManagedChrome()
         // Remove credentials persisted by versions before mandatory account access.
         context.getSharedPreferences("yidream_device_portal", Context.MODE_PRIVATE).edit().clear().commit()
     }

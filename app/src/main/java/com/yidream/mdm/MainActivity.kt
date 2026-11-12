@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
         // Device Owner filtering and its configuration remain independent from account sign-in.
         importWebAdbConfigIfPresent()
         accountClient = AppAccountDependencies.factory(this)
+        if (!accountClient.hasSession) deviceOwnerManager.closeManagedChrome()
         accountGate = AccountGateController(this, accountClient,
             canRecover = {
                 deviceOwnerManager.isDeviceOwner() && deviceOwnerManager.isDebuggingBlocked() &&
@@ -437,11 +438,10 @@ class MainActivity : AppCompatActivity() {
         try {
             if (!deviceOwnerManager.isDeviceOwner()) return
             if (::portal.isInitialized) portal.pauseStoreUpdates()
-            RemoteDevicePolicy.cancel(applicationContext)
+            RemoteDevicePolicy.cancel(applicationContext, closeChrome = false)
             runCatching { stopLockTask() }
             deviceOwnerManager.leaveDedicatedMode()
-            deviceOwnerManager.removeBaseRestrictions()
-            deviceOwnerManager.dpm.clearDeviceOwnerApp(packageName)
+            deviceOwnerManager.removeManagement()
             if (!mainVisible) accountGate.showLogin()
             Toast.makeText(this, getString(R.string.unlock_success), Toast.LENGTH_LONG).show()
             refreshStatus()

@@ -6,6 +6,14 @@ Plateforme de gestion d'appareils Android filtrés. Ce dépôt contient l'app An
 
 YiDream ouvre les onglets Accueil, Boutique, Sites et Réglages pour gérer les applications et les demandes de sites. Les informations de version et d’utilisation se trouvent dans Réglages. Le launcher musical est un projet distinct : [YZ MDM](https://github.com/YiDreamKosher/YZ-MDM). YiDream ne remplace pas l’écran d’accueil Android.
 
+## Managed Chrome pilot
+
+Use a managed Android phone running this pilot build with an installed, compatible Chrome release (Android Chrome 86 or newer) and a separate Android System WebView provider. In YiDream Suite, open the phone's **Remote rules** and enable **Managed Chrome** once the phone has reported compatibility. YiDream applies the phone's permanent site rules as managed Chrome restrictions, blocking navigation by default and allowing approved HTTPS domains. **Open in Chrome** appears in YiDream on request cards that are covered by permanent Chrome permissions. Use the same control in Suite to disable access.
+
+Timed site grants stay in the YiDream reader. Chrome's URL policies do not provide an expiration per rule. The Chrome integration controls browser navigation, and policy synchronization confirms Android's stored restrictions. Validate Chrome's effective policies at `chrome://policy`, then exercise allowed and denied domains, subdomains, redirects, and policy changes on a physical phone. The pilot does not install Chrome or enable a VPN.
+
+This implementation uses Android's public managed-configuration APIs and adds no third-party code or dependencies. Chrome is a Google application. The existing YiDream repository license is unchanged.
+
 ## Temporary site access (v6.3.0, Android version code 22)
 
 When requesting a site, select ongoing access, 24 hours after approval, or a specific trip end date and time. The administrator approves the requested window, and the YiDream reader applies the temporary rule until its expiry. The device evaluates the saved expiry while offline. Permanent site rules resume after a temporary window ends.
