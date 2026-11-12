@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
+import java.io.IOException
 import java.net.ConnectException
 import java.net.HttpURLConnection
 import java.net.NoRouteToHostException
@@ -314,18 +315,23 @@ internal class AppAccountService(private val context: Context) : AppAccountClien
             connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
             if (status == 401 || status == 403) throw AccountRequestException(status, "APP_ACCESS_DENIED")
-            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val response = stream?.bufferedReader()?.use { reader ->
-                val buffer = CharArray(maxResponseChars + 1)
-                var length = 0
-                while (length < buffer.size) {
-                    val count = reader.read(buffer, length, buffer.size - length)
-                    if (count == -1) break
-                    length += count
-                }
-                check(length <= maxResponseChars) { "RESPONSE_TOO_LARGE" }
-                String(buffer, 0, length)
-            }.orEmpty()
+            val response = try {
+                val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                stream?.bufferedReader()?.use { reader ->
+                    val buffer = CharArray(maxResponseChars + 1)
+                    var length = 0
+                    while (length < buffer.size) {
+                        val count = reader.read(buffer, length, buffer.size - length)
+                        if (count == -1) break
+                        length += count
+                    }
+                    check(length <= maxResponseChars) { "RESPONSE_TOO_LARGE" }
+                    String(buffer, 0, length)
+                }.orEmpty()
+            } catch (error: IOException) {
+                if (status !in 200..299) throw AccountRequestException(status, "REQUEST_FAILED")
+                throw error
+            }
             if (status !in 200..299) {
                 val error = runCatching { JSONObject(response) }.getOrNull()
                 throw AccountRequestException(status, error?.optString("message")?.ifBlank { null }
