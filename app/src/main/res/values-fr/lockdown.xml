@@ -3,4 +3,5 @@
     <string name="lockdown_admin_recovery">Maintenance administrateur</string>
     <string name="lockdown_incomplete">Le verrouillage du téléphone reste à vérifier. Contacte ton administrateur avant de remettre le téléphone.</string>
     <string name="lockdown_retry_code">Trop de tentatives. Attends 15 minutes avant de réessayer.</string>
+    <string name="usb_profile_webview">Le navigateur %1$s fournit aussi WebView. Sélectionne un fournisseur WebView distinct sur ce téléphone et relance la configuration USB.</string>
 </resources>

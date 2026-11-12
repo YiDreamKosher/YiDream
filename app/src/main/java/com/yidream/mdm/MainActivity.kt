@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var accountGate: AccountGateController
     private var mainVisible = false
     private var usbConfigurationImported = false
+    private var usbProfileFailed = false
     private var connectivityObserver: Closeable? = null
     private var offlineExpiry: Job? = null
     private var restoredTab: String? = null
@@ -62,7 +63,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showWorkspace(access: AppAccess, justActivated: Boolean) {
-        if (!access.offline && access.deviceId != null && deviceOwnerManager.isDeviceOwner() &&
+        if (!access.offline && access.deviceId != null && deviceOwnerManager.isDeviceOwner() && !usbProfileFailed &&
             (justActivated || !usbConfigurationImported)
         ) {
             if (unlockManager.hasKeyConfigured() && deviceOwnerManager.finishProvisioning()) {
@@ -463,7 +464,38 @@ class MainActivity : AppCompatActivity() {
         }
 
         try {
-            val json = JSONObject(configFile.readText())
+            usbProfileFailed = true
+            val json = configFile.inputStream().buffered().use { input ->
+                val bytes = ByteArray(64 * 1024 + 1)
+                var count = 0
+                while (count < bytes.size) {
+                    val read = input.read(bytes, count, bytes.size - count)
+                    if (read < 0) break
+                    count += read
+                }
+                require(count in 1 until bytes.size)
+                JSONObject(String(bytes, 0, count, Charsets.UTF_8))
+            }
+            val profile = UsbAppProfile.parse(json)
+            if (profile != null) {
+                val requestId = UsbAppProfile.requestId(json)
+                check(deviceOwnerManager.isDeviceOwner())
+                val browser = deviceOwnerManager.disallowedWebViewBrowser(profile)
+                if (browser != null) {
+                    Toast.makeText(this, getString(R.string.usb_profile_webview, browser), Toast.LENGTH_LONG).show()
+                    return
+                }
+                unlockManager.storeIntermediateKey(json.getString("unlock_intermediate_key"))
+                check(deviceOwnerManager.applyUsbAppProfile(profile))
+                check(configFile.delete())
+                writeUsbProfileReceipt(configFile, requestId)
+                usbConfigurationImported = true
+                usbProfileFailed = false
+                refreshStatus()
+                Toast.makeText(this, "Configuration importée et appliquée.", Toast.LENGTH_LONG).show()
+                return
+            }
+            usbProfileFailed = false
 
             val extraPackages = mutableListOf<String>()
             json.optJSONArray("extra_packages")?.let {
@@ -487,8 +519,23 @@ class MainActivity : AppCompatActivity() {
             refreshStatus()
             Toast.makeText(this, "Configuration importée et appliquée.", Toast.LENGTH_LONG).show()
             configFile.delete()
-        } catch (e: Exception) {
-            Toast.makeText(this, "Config invalide, ignorée.", Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {
+            if (usbProfileFailed) {
+                Toast.makeText(this, R.string.lockdown_incomplete, Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "Config invalide, ignorée.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun writeUsbProfileReceipt(config: File, requestId: String) {
+        val receipt = File(config.parentFile, "yidream_config_applied.json")
+        val pending = File(config.parentFile, "yidream_config_applied.tmp")
+        try {
+            pending.writeText(JSONObject().put("profile_request_id", requestId).toString())
+            check(pending.renameTo(receipt))
+        } finally {
+            pending.delete()
         }
     }
 }

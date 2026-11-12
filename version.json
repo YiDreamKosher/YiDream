@@ -1,5 +1,9 @@
 {
   "versionCode": 23,
+  "versionName": "v6.4.0",
+  "apkUrl": "https://yidreamkosher.github.io/YiDream/admin/yidream.apk",
+  "apkSha256": "",
+  "changelog": "Android setup supports MP3 and Qin app profiles with per-device selections. Request site access for 24 hours or until a selected trip end time. Temporary access expires in the YiDream reader even when the phone is offline. Administrators can prepare an account before assigning an approved phone."
   "versionName": "v6.3.1",
   "apkUrl": "https://yidreamkosher.github.io/YiDream/admin/yidream.apk",
   "apkSha256": "",
