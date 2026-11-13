@@ -89,4 +89,13 @@ class OfflineRequestsTest {
         assertEquals(1, sent)
         assertTrue(denied)
     }
+
+    @Test fun disabledRequestIsMarkedFailedWithoutInvalidatingTheAccount() = runBlocking {
+        val app = QueuedDeviceRequest(scope, UUID.randomUUID().toString(), "com.example.app", "",
+            QueuedDeviceRequest.Kind.APP)
+        var result: QueuedDeviceRequest? = null
+        assertTrue(OfflineRequests.dispatchPending(listOf(app), { error("REQUESTS_DISABLED") },
+            { _, replacement -> result = replacement }, { fail("Request permission is separate from account access") }))
+        assertEquals(app.copy(failed = true), result)
+    }
 }

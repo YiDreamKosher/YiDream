@@ -48,4 +48,10 @@ class ApkInstallPolicyTest {
         assertFalse(ApkInstallPolicy.installationConfirmed(old.packageName, 15, null))
         assertTrue(ApkInstallPolicy.installationConfirmed(old.packageName, 15, update))
     }
+    @Test fun explicitlyAuthorizedFirstInstallStillRequiresMatchingSignedArchive() {
+        assertNull(ApkInstallPolicy.rejection(old.packageName, 15, update, null, allowFirstInstall = true))
+        assertEquals(ApkInstallPolicy.Rejection.MISSING_SIGNATURE, ApkInstallPolicy.rejection(
+            old.packageName, 15, update.copy(signers = emptySet()), null, allowFirstInstall = true
+        ))
+    }
 }

@@ -165,7 +165,7 @@ internal object OfflineRequests {
             } catch (error: Exception) {
                 when (error.message) {
                     "INVALID_APP_REQUEST", "INVALID_SITE_REQUEST", "INVALID_SITE",
-                    "INVALID_SITE_WINDOW", "SITE_WINDOW_EXPIRED" ->
+                    "INVALID_SITE_WINDOW", "SITE_WINDOW_EXPIRED", "REQUESTS_DISABLED" ->
                         update(request, request.copy(failed = true))
                     "SITE_REQUEST_LIMIT", "APP_REQUEST_LIMIT" -> retry = true
                     "APP_ACCESS_DENIED" -> { denied(); return true }

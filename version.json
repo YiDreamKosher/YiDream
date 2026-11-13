@@ -1,7 +1,7 @@
 {
-  "versionCode": 24,
-  "versionName": "v6.3.2",
+  "versionCode": 25,
+  "versionName": "v6.4.0",
   "apkUrl": "https://yidreamkosher.github.io/YiDream/admin/yidream.apk",
   "apkSha256": "",
-  "changelog": "Enter an activation or recovery code from Settings → Account and copy the device ID shown in YiDream Suite. A pending activation code stays visible when the phone reconnects or the app resumes."
+  "changelog": "YiDream now follows the MP3 or Qin profile assigned in the Suite. The administrator can enable app and website requests separately. MP3 disables the Sites section. Approved apps can be installed from the store when their verified APK is published."
 }

@@ -11,11 +11,12 @@ internal data class ApkIdentity(
 internal object ApkInstallPolicy {
     enum class Rejection { WRONG_PACKAGE, WRONG_VERSION, MISSING_SIGNATURE, SIGNATURE_MISMATCH, DOWNGRADE, NOT_INSTALLED, SAME_VERSION }
 
-    fun rejection(expectedPackage: String, expectedVersion: Long, candidate: ApkIdentity, installed: ApkIdentity?): Rejection? {
+    fun rejection(expectedPackage: String, expectedVersion: Long, candidate: ApkIdentity,
+                  installed: ApkIdentity?, allowFirstInstall: Boolean = false): Rejection? {
         if (candidate.packageName != expectedPackage) return Rejection.WRONG_PACKAGE
         if (expectedVersion <= 0 || candidate.versionCode != expectedVersion) return Rejection.WRONG_VERSION
         if (candidate.signers.isEmpty()) return Rejection.MISSING_SIGNATURE
-        if (installed == null) return Rejection.NOT_INSTALLED
+        if (installed == null) return if (allowFirstInstall) null else Rejection.NOT_INSTALLED
         if (installed.packageName != expectedPackage) return Rejection.WRONG_PACKAGE
         if (installed.signers.isEmpty()) return Rejection.MISSING_SIGNATURE
         val sameSigners = installed.signers == candidate.signers
