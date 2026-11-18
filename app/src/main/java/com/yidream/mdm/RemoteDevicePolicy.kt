@@ -32,9 +32,18 @@ internal data class DevicePolicy(
     val revision: Long,
     val apps: Map<String, Boolean>,
     val sites: Map<String, Boolean>,
-    val temporarySites: Map<String, Instant> = emptyMap()
+    val temporarySites: Map<String, Instant> = emptyMap(),
+    val deviceProfile: String? = null,
+    val appRequestsEnabled: Boolean = true,
+    val siteRequestsEnabled: Boolean = true
 ) {
     data class SiteAccess(val allowed: Boolean, val expiresAt: Instant? = null)
+
+    val webEnabled: Boolean get() = deviceProfile != "mp3"
+    val canRequestSites: Boolean get() = webEnabled && siteRequestsEnabled
+
+    fun allowsApp(packageName: String): Boolean =
+        apps[packageName] ?: (DeviceAppProfile.packages(deviceProfile)?.contains(packageName) ?: true)
 
     private var timeAtFetch = Instant.now()
     private var fetchElapsed = SystemClock.elapsedRealtime()
@@ -45,7 +54,7 @@ internal data class DevicePolicy(
     fun permits(address: URI): Boolean = siteAccess(address).allowed
 
     fun siteAccess(address: URI, now: Instant = currentTime()): SiteAccess {
-        if (!isWebAddress(address)) return SiteAccess(false)
+        if (!webEnabled || !isWebAddress(address)) return SiteAccess(false)
         var host = address.host.lowercase(Locale.ROOT)
         while (true) {
             temporarySites[host]?.takeIf { it > now }?.let { return SiteAccess(true, it) }
@@ -58,6 +67,9 @@ internal data class DevicePolicy(
     fun toJson(): JSONObject = JSONObject()
         .put("revision", revision).put("apps", JSONObject(apps)).put("sites", JSONObject(sites))
         .put("temporary_sites", JSONObject(temporarySites.mapValues { it.value.toString() }))
+        .put("device_profile", deviceProfile ?: JSONObject.NULL)
+        .put("app_requests_enabled", appRequestsEnabled)
+        .put("site_requests_enabled", siteRequestsEnabled)
 
     fun toBootCache(boot: Int): JSONObject = toJson()
         .put("server_time", timeAtFetch.toString()).put("checked_elapsed", fetchElapsed).put("boot", boot)
@@ -116,8 +128,13 @@ internal data class DevicePolicy(
             require(!value.isNull("server_time") || (!requireWindows && temporarySites.isEmpty()))
             val serverTime = if (value.isNull("server_time")) Instant.now()
                 else parseSiteWindowTime(value.getString("server_time"))
+            val profile = if (value.isNull("device_profile")) null else value.getString("device_profile")
+            require(profile == null || profile == "mp3" || profile == "qin") { "INVALID_POLICY" }
+            fun enabled(key: String): Boolean = if (!value.has(key)) true
+                else value.get(key) as? Boolean ?: error("INVALID_POLICY")
             return DevicePolicy(revision, rules("apps", 100, ::validPackageName),
-                rules("sites", 200, ::validHost), temporarySites).apply {
+                rules("sites", 200, ::validHost), temporarySites, profile,
+                enabled("app_requests_enabled"), enabled("site_requests_enabled")).apply {
                 timeAtFetch = serverTime
                 fetchElapsed = elapsedAtFetch
             }
@@ -196,7 +213,7 @@ internal object RemoteDevicePolicy {
     private fun credentialHash(token: String): String = MessageDigest.getInstance("SHA-256")
         .digest(token.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
-    fun start(context: Context) {
+    fun start(context: Context, onPolicy: (DevicePolicy) -> Unit) {
         val app = context.applicationContext
         pause()
         if (!DeviceOwnerManager(app).isDeviceOwner() || !MdmService(app).paired) return
@@ -211,6 +228,7 @@ internal object RemoteDevicePolicy {
         foreground = scope.launch {
             while (isActive) {
                 val outcome = sync(app)
+                if (outcome is PolicySync.Accepted) onPolicy(outcome.policy)
                 if (outcome == PolicySync.Denied || outcome == PolicySync.NotEnrolled) break
                 delay(FOREGROUND_INTERVAL_MS)
             }
@@ -246,11 +264,9 @@ internal object RemoteDevicePolicy {
             check(service.deviceCredential() == device && owner.isDeviceOwner()) { "SESSION_CHANGED" }
             if ((current(context)?.revision ?: 0) > policy.revision) return PolicySync.Unavailable
 
-            var applied = true
-            for ((name, allowed) in policy.apps) {
+            val applied = owner.applyRemoteAppPolicy(policy) {
                 currentCoroutineContext().ensureActive()
                 check(service.deviceCredential() == device && owner.isDeviceOwner()) { "SESSION_CHANGED" }
-                if (!owner.applyRemoteAppRule(name, allowed)) applied = false
             }
             currentCoroutineContext().ensureActive()
             check(service.deviceCredential() == device && owner.isDeviceOwner()) { "SESSION_CHANGED" }

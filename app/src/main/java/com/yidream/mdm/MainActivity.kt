@@ -40,6 +40,8 @@ class MainActivity : AppCompatActivity() {
     private var restoredTab: String? = null
     private var restoredSettingsPage: String? = null
     private var navigationBackCallback: OnBackPressedCallback? = null
+    private var visiblePolicy: DevicePolicy? = null
+    private val webAvailable get() = visiblePolicy?.webEnabled != false
 
     private lateinit var pages: Map<String, View>
     private lateinit var tabs: Map<String, View>
@@ -87,6 +89,7 @@ class MainActivity : AppCompatActivity() {
         OfflineRequests.schedule(applicationContext)
         mainVisible = true
         selectedTab = MainNavigation.restore(restoredTab)
+        visiblePolicy = RemoteDevicePolicy.current(this)
 
         pages = mapOf(
             "home" to findViewById(R.id.pageHome),
@@ -130,7 +133,19 @@ class MainActivity : AppCompatActivity() {
                 access.deviceId?.let { getString(R.string.account_device_id, it) }).joinToString("\n")
             setTextIsSelectable(true)
         }
-        listOf(R.id.accountSettingsWhatsApp, R.id.accountLogout).forEach { id ->
+        findViewById<View>(R.id.accountCopyDeviceId).apply {
+            val deviceId = access.deviceId
+            visibility = if (deviceId == null) View.GONE else View.VISIBLE
+            if (deviceId != null) setOnClickListener {
+                getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(
+                    android.content.ClipData.newPlainText(getString(R.string.account_copy_device_id), deviceId)
+                )
+            }
+        }
+        findViewById<View>(R.id.accountReactivate).setOnClickListener {
+            hideWorkspace(reactivate = true)
+        }
+        listOf(R.id.accountCopyDeviceId, R.id.accountReactivate, R.id.accountSettingsWhatsApp, R.id.accountLogout).forEach { id ->
             findViewById<androidx.appcompat.widget.AppCompatButton>(id).apply {
                 backgroundTintList = null
                 supportBackgroundTintList = null
@@ -155,7 +170,24 @@ class MainActivity : AppCompatActivity() {
             appUpdates.checkAvailability { available ->
                 if (mainVisible && settingsMenu === currentSettings) currentSettings.setUpdateAvailable(available)
             }
-            RemoteDevicePolicy.start(applicationContext)
+            RemoteDevicePolicy.start(applicationContext, ::updateRequestNavigation)
+        }
+    }
+
+    private fun updateRequestNavigation(policy: DevicePolicy) {
+        if (!mainVisible) return
+        val previous = visiblePolicy
+        val webChanged = webAvailable != policy.webEnabled
+        val sitesChanged = previous?.canRequestSites != policy.canRequestSites ||
+            previous?.sites != policy.sites || previous?.temporarySites != policy.temporarySites
+        val appsChanged = previous?.deviceProfile != policy.deviceProfile || previous?.apps != policy.apps
+        val appRequestsChanged = previous?.appRequestsEnabled != policy.appRequestsEnabled
+        visiblePolicy = policy
+        when {
+            webChanged && !webAvailable && selectedTab == "sites" -> selectTab("store")
+            webChanged || (sitesChanged && selectedTab == "sites") ||
+                (appsChanged && selectedTab == "store") -> selectTab(selectedTab)
+            appRequestsChanged && selectedTab == "store" -> portal.refreshAppRequests()
         }
     }
 
@@ -188,7 +220,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun selectTab(requestedKey: String) {
         if (!mainVisible) return
-        val key = MainNavigation.restore(requestedKey)
+        val key = MainNavigation.restore(requestedKey, webAvailable)
         if (key != selectedTab && ::settingsMenu.isInitialized) settingsMenu.open(null)
         selectedTab = key
         applyNavigationStyle()
@@ -238,6 +270,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.navigationBar).visibility = if (bottomBar) View.VISIBLE else View.GONE
         findViewById<View>(R.id.compactNavigation).visibility =
             if (!bottomBar && selectedTab != "home") View.VISIBLE else View.GONE
+        findViewById<View>(R.id.homeOpenSites).visibility = if (webAvailable) View.VISIBLE else View.GONE
+        tabs["sites"]?.visibility = if (webAvailable) View.VISIBLE else View.GONE
     }
 
     private fun setupQuickSettingsLaunch() {
@@ -366,7 +400,7 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
     }
 
-    private fun hideWorkspace() {
+    private fun hideWorkspace(reactivate: Boolean = false) {
         offlineExpiry?.cancel()
         offlineExpiry = null
         if (::portal.isInitialized) portal.pauseStoreUpdates()
@@ -377,7 +411,7 @@ class MainActivity : AppCompatActivity() {
             restoredSettingsPage = if (::settingsMenu.isInitialized) settingsMenu.selected else null
             mainVisible = false
             // Mask the workspace before Android keeps a paused activity or task snapshot.
-            accountGate.showLogin()
+            if (reactivate) accountGate.showReactivation() else accountGate.showLogin()
         }
     }
 

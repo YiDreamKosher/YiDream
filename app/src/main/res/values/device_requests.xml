@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="device_requests_disabled">Your administrator has disabled these requests for this device.</string>
+    <string name="device_app_requests_history">App request history</string>
+    <string name="device_app_request_other">Other app</string>
+    <string name="device_app_request_target">Package ID or Google Play link</string>
+    <string name="device_app_request_invalid">Enter a valid package ID or Google Play link.</string>
+    <string name="device_install_approved_app">Install approved app</string>
+</resources>

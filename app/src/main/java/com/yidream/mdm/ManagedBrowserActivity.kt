@@ -108,12 +108,16 @@ class ManagedBrowserActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (RemoteDevicePolicy.current(this)?.webEnabled == false) {
+            finish()
+            return
+        }
         status.setText(R.string.managed_sites_loading_rules)
         poll = lifecycleScope.launch {
             while (isActive) {
                 when (val result = RemoteDevicePolicy.sync(applicationContext)) {
-                    is PolicySync.Accepted -> acceptPolicy(result.policy)
-                    is PolicySync.Cached -> acceptPolicy(result.policy, result.leaseDeadlineElapsed)
+                    is PolicySync.Accepted -> if (!acceptPolicy(result.policy)) break
+                    is PolicySync.Cached -> if (!acceptPolicy(result.policy, result.leaseDeadlineElapsed)) break
                     PolicySync.Denied, PolicySync.NotEnrolled -> {
                         discardPolicy()
                         finish()
@@ -126,12 +130,17 @@ class ManagedBrowserActivity : AppCompatActivity() {
         }
     }
 
-    private fun acceptPolicy(accepted: DevicePolicy, leaseDeadline: Long? = null) {
+    private fun acceptPolicy(accepted: DevicePolicy, leaseDeadline: Long? = null): Boolean {
+        if (!accepted.webEnabled) {
+            discardPolicy()
+            finish()
+            return false
+        }
         val first = policy == null
         val next = ReaderPolicy(accepted, leaseDeadline)
         if (next.leaseRemaining() <= 0) {
             discardPolicy()
-            return
+            return true
         }
         policy = next
         open.isEnabled = true
@@ -144,11 +153,12 @@ class ManagedBrowserActivity : AppCompatActivity() {
                 navigate(it)
             }
         }
+        return true
     }
 
     private fun discardPolicy() {
         policy = null
-        open.isEnabled = false
+        if (::open.isInitialized) open.isEnabled = false
         clearPage()
         status.setText(R.string.managed_sites_rules_unavailable)
     }

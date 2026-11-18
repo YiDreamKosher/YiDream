@@ -13,7 +13,7 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.Locale
 
-/** Updates an installed package using the release currently approved for this device. */
+/** Installs a published release only when the current device policy authorizes it. */
 internal class CatalogInstaller(private val context: Context) {
     private data class Release(val packageName: String, val version: Long, val url: String, val sha256: String) {
         companion object {
@@ -30,24 +30,24 @@ internal class CatalogInstaller(private val context: Context) {
         val device = service.deviceCredential()
             ?: return@withContext SilentInstaller.Result.Failure("Appareil non associé.")
         val release = Release.from(app)
-        val metadata = ApkMetadata(context.packageManager)
-        suspend fun authorized(): Boolean {
-            if (!owner.isDeviceOwner() || owner.isInstallationChannel(release.packageName) || service.deviceCredential() != device) return false
-            if (!CatalogUpdatePolicy.shouldUpdate(metadata.installed(release.packageName)?.versionCode, release.version)) return false
-            val policy = service.devicePolicy(device)
-            if (policy.apps[release.packageName] == false) return false
-            val entries = service.catalog()
-            val listed = (0 until entries.length()).any { index ->
-                entries.optJSONObject(index)?.let { Release.from(it) == release } == true
-            }
-            return listed && service.deviceCredential() == device && !owner.isInstallationChannel(release.packageName) &&
-                !owner.dpm.isApplicationHidden(owner.adminComponent, release.packageName)
-        }
-
         if (release.packageName == context.packageName || !DevicePolicy.validPackageName(release.packageName) ||
             !CatalogUpdatePolicy.isReady(release.url, release.sha256, release.version)) {
             return@withContext SilentInstaller.Result.Failure("Mise à jour invalide.")
         }
+        val metadata = ApkMetadata(context.packageManager)
+        val firstInstall = metadata.installed(release.packageName) == null
+        suspend fun authorized(): Boolean {
+            if (!owner.isDeviceOwner() || !owner.canInstallCatalogApp(release.packageName) || service.deviceCredential() != device) return false
+            val policy = service.devicePolicy(device)
+            if (!CatalogUpdatePolicy.canInstall(policy, release.packageName,
+                    metadata.installed(release.packageName)?.versionCode, release.version, firstInstall)) return false
+            val entries = service.catalog()
+            val listed = (0 until entries.length()).any { index ->
+                entries.optJSONObject(index)?.let { Release.from(it) == release } == true
+            }
+            return listed && service.deviceCredential() == device && owner.canInstallCatalogApp(release.packageName)
+        }
+
         var temporaryApk: File? = null
         var connection: HttpURLConnection? = null
         try {
@@ -86,7 +86,9 @@ internal class CatalogInstaller(private val context: Context) {
             if (actualSha256 != release.sha256) {
                 return@withContext SilentInstaller.Result.Failure("La vérification de l’APK a échoué.")
             }
-            PackageSessionInstaller(context).install(apk, release.packageName, release.version) { authorized() }
+            PackageSessionInstaller(context).install(apk, release.packageName, release.version, firstInstall) {
+                authorized()
+            }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {

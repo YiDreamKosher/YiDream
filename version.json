@@ -5,7 +5,9 @@
   "apkSha256": "",
   "changelog": "Android setup supports MP3 and Qin app profiles with per-device selections. Request site access for 24 hours or until a selected trip end time. Temporary access expires in the YiDream reader even when the phone is offline. Administrators can prepare an account before assigning an approved phone."
   "versionName": "v6.3.1",
+  "versionCode": 25,
+  "versionName": "v6.4.0",
   "apkUrl": "https://yidreamkosher.github.io/YiDream/admin/yidream.apk",
   "apkSha256": "",
-  "changelog": "Improves account access on filtered networks and prevents concurrent session updates from dropping access. Request site access for 24 hours or until a selected trip end time. Temporary access expires in the YiDream reader even when the phone is offline. Administrators can prepare an account before assigning an approved phone."
+  "changelog": "YiDream now follows the MP3 or Qin profile assigned in the Suite. The administrator can enable app and website requests separately. MP3 disables the Sites section. Approved apps can be installed from the store when their verified APK is published."
 }

@@ -103,7 +103,7 @@ class MdmService(context: Context) {
                 val reason = runCatching { JSONObject(errorResponse.orEmpty()).optString("message") }.getOrNull()
                 error(when {
                     reason in setOf("INVALID_APP_REQUEST", "INVALID_SITE_REQUEST", "INVALID_SITE_WINDOW",
-                        "SITE_WINDOW_EXPIRED", "SITE_REQUEST_LIMIT", "APP_REQUEST_LIMIT") ->
+                        "SITE_WINDOW_EXPIRED", "SITE_REQUEST_LIMIT", "APP_REQUEST_LIMIT", "REQUESTS_DISABLED") ->
                         requireNotNull(reason)
                     status == 401 || status == 403 || reason == "APP_ACCESS_DENIED" -> "APP_ACCESS_DENIED"
                     status == 404 -> "SERVICE_NOT_READY"
@@ -135,6 +135,19 @@ class MdmService(context: Context) {
         private const val SERVICE = "https://jqrznghqwdjbizjehzrm.supabase.co"
         // Public project key, never a service-role key.
         private const val PUBLIC_KEY = "sb_publishable_YG9zgjQ5Y56WiBtKdJMQvA_-UBAFv9B"
+        internal fun normalizeAppPackage(address: String): String {
+            val input = address.trim()
+            if (DevicePolicy.validPackageName(input)) return input
+            require(input.length <= 2048) { "INVALID_APP_REQUEST" }
+            val uri = URI(input)
+            require(uri.scheme == "https" && uri.host == "play.google.com" &&
+                uri.rawPath == "/store/apps/details" && uri.rawUserInfo == null &&
+                (uri.port == -1 || uri.port == 443)) { "INVALID_APP_REQUEST" }
+            return uri.rawQuery.orEmpty().split('&').filter { it.startsWith("id=") }
+                .singleOrNull()?.removePrefix("id=")?.takeIf(DevicePolicy::validPackageName)
+                ?: error("INVALID_APP_REQUEST")
+        }
+
         fun normalizeSite(address: String): String {
             val input = address.trim()
             val uri = URI(if (input.contains("://")) input else "https://$input")

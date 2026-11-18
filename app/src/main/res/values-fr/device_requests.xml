@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="device_requests_disabled">Ton administrateur a désactivé ces demandes pour cet appareil.</string>
+    <string name="device_app_requests_history">Historique des demandes d’applications</string>
+    <string name="device_app_request_other">Autre application</string>
+    <string name="device_app_request_target">Identifiant de l’application ou lien Google Play</string>
+    <string name="device_app_request_invalid">Saisis un identifiant d’application ou un lien Google Play valide.</string>
+    <string name="device_install_approved_app">Installer l’application autorisée</string>
+</resources>

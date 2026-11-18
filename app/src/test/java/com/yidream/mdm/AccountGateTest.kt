@@ -144,9 +144,29 @@ class AccountGateTest {
         launch()
         assertEquals(0, fake.activations)
         assertNull(activity.findViewById<View>(R.id.pageHome))
+        controller.pause().resume()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(0, fake.activations)
+        assertEquals("A".repeat(32), activity.findViewById<EditText>(R.id.accountCode).text.toString())
         activity.findViewById<Button>(R.id.accountKeep).performClick()
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(0, fake.activations)
+        assertNotNull(activity.findViewById<View>(R.id.pageHome))
+    }
+
+    @Test fun manualReactivationKeepsTypedCodeOnResume() {
+        fake.savedSession = true
+        launch()
+        activity.findViewById<Button>(R.id.accountReactivate).performClick()
+        activity.findViewById<EditText>(R.id.accountCode).setText("B".repeat(32))
+        controller.pause().resume()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNull(activity.findViewById<View>(R.id.pageHome))
+        assertEquals("B".repeat(32), activity.findViewById<EditText>(R.id.accountCode).text.toString())
+        assertEquals(0, fake.activations)
+        activity.findViewById<Button>(R.id.accountContinue).performClick()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(1, fake.activations)
         assertNotNull(activity.findViewById<View>(R.id.pageHome))
     }
 

@@ -107,4 +107,59 @@ class DevicePolicyTest {
         value.getJSONObject("sites").put("127.0.0.1", true)
         assertTrue(runCatching { DevicePolicy.parse(value) }.isFailure)
     }
+
+    @Test fun mp3DoesNotOpenPermanentOrTemporaryWebRulesAndKeepsSeparateAppRequestPermission() {
+        val value = JSONObject("""{
+            "revision":8,"apps":{},"sites":{"example.org":true},"server_time":"2026-11-12T11:00:00Z",
+            "temporary_sites":{"trip.example.org":"2026-11-13T11:00:00Z"},
+            "device_profile":"mp3","app_requests_enabled":true,"site_requests_enabled":true
+        }""")
+        val policy = DevicePolicy.parse(value, requireWindows = true)
+        val cache = policy.toBootCache(2)
+        val restored = requireNotNull(DevicePolicy.restoreBootCache(cache, 2, cache.getLong("checked_elapsed")))
+        assertFalse(restored.webEnabled)
+        assertFalse(restored.canRequestSites)
+        assertTrue(restored.appRequestsEnabled)
+        assertFalse(restored.permits(URI("https://example.org/")))
+        assertFalse(restored.permits(URI("https://trip.example.org/")))
+        assertEquals("store", MainNavigation.restore("sites", webAvailable = restored.webEnabled))
+    }
+
+    @Test fun legacyPolicyPreservesBothRequestActionsAndQinUsesIndependentSwitches() {
+        val value = JSONObject("""{"revision":4,"apps":{},"sites":{}}""")
+        val legacy = DevicePolicy.parse(value)
+        assertTrue(legacy.canRequestSites)
+        assertTrue(legacy.appRequestsEnabled)
+        val qin = DevicePolicy.parse(value.put("device_profile", "qin").put("app_requests_enabled", false))
+        assertTrue(qin.canRequestSites)
+        assertFalse(qin.appRequestsEnabled)
+        value.put("site_requests_enabled", "false")
+        assertTrue(runCatching { DevicePolicy.parse(value) }.isFailure)
+    }
+
+    @Test fun anUninstalledCatalogPackageRequiresExplicitApprovalEvenWhenItIsInTheProfile() {
+        val app = "com.rhmsoft.pulsar"
+        val mp3 = DevicePolicy(8, emptyMap(), emptyMap(), deviceProfile = "mp3")
+        assertTrue(CatalogUpdatePolicy.canInstall(mp3, app, 1L, 2L, allowFirstInstall = false))
+        assertFalse(CatalogUpdatePolicy.canInstall(mp3, app, null, 2L, allowFirstInstall = true))
+        val approved = mp3.copy(apps = mapOf(app to true))
+        assertTrue(CatalogUpdatePolicy.canInstall(approved, app, null, 2L, allowFirstInstall = true))
+        assertFalse(CatalogUpdatePolicy.canInstall(approved, app, null, 2L, allowFirstInstall = false))
+        assertFalse(CatalogUpdatePolicy.canInstall(mp3.copy(apps = mapOf(app to false)), app, 1L, 2L,
+            allowFirstInstall = false))
+    }
+
+    @Test fun acceptsExactPlayListingAndPackageIdentifiers() {
+        assertEquals("com.example.app", MdmService.normalizeAppPackage("com.example.app"))
+        assertEquals("com.example.app", MdmService.normalizeAppPackage(
+            "https://play.google.com/store/apps/details?id=com.example.app&hl=fr"
+        ))
+        listOf(
+            "https://play.google.com.example.org/store/apps/details?id=com.example.app",
+            "https://play.google.com/store/apps/details?id=com.example.app&id=com.other.app",
+            "https://play.google.com/store/search?id=com.example.app"
+        ).forEach { input ->
+            assertTrue(runCatching { MdmService.normalizeAppPackage(input) }.isFailure)
+        }
+    }
 }

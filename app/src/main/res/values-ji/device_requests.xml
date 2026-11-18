@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="device_requests_disabled">דער אַדמיניסטראַטאָר האָט אויסגעשלאָסן די בקשות אויף דעם אַפּאַראַט.</string>
+    <string name="device_app_requests_history">געשיכטע פֿון אַפּ־בקשות</string>
+    <string name="device_app_request_other">אַן אַנדערע אַפּ</string>
+    <string name="device_app_request_target">פּעקל־אידענטיפיקאַטאָר אָדער Google Play לינק</string>
+    <string name="device_app_request_invalid">גיב אַרײַן אַ גילטיקן פּעקל־אידענטיפיקאַטאָר אָדער Google Play לינק.</string>
+    <string name="device_install_approved_app">אינסטאַלירן די באשטעטיקטע אַפּ</string>
+</resources>

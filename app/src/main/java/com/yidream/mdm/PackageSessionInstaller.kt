@@ -18,6 +18,7 @@ internal class PackageSessionInstaller(private val context: Context) {
         file: File,
         expectedPackage: String,
         expectedVersion: Long,
+        allowFirstInstall: Boolean = false,
         authorizeCommit: suspend () -> Boolean = { true }
     ): SilentInstaller.Result {
         currentCoroutineContext().ensureActive()
@@ -28,7 +29,9 @@ internal class PackageSessionInstaller(private val context: Context) {
             val metadata=ApkMetadata(context.packageManager)
             val candidate=metadata.archive(file.absolutePath)
                 ?: return SilentInstaller.Result.Failure("Le fichier APK ne peut pas être lu par Android.")
-            fun rejection() = ApkInstallPolicy.rejection(expectedPackage, expectedVersion, candidate, metadata.installed(expectedPackage))
+            fun rejection() = ApkInstallPolicy.rejection(
+                expectedPackage, expectedVersion, candidate, metadata.installed(expectedPackage), allowFirstInstall
+            )
             rejection()?.let { return failure(it) }
             val params=PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
             params.setInstallReason(PackageManager.INSTALL_REASON_POLICY)

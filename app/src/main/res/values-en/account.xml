@@ -25,4 +25,6 @@
     <string name="account_replace_prompt">An activation code was sent by USB. Activate it to replace the account on this phone.</string>
     <string name="account_service_pending">The activation service is not available yet. Contact your administrator.</string>
     <string name="account_device_id">Device ID: %1$s</string>
+    <string name="account_copy_device_id">Copy device ID</string>
+    <string name="account_reactivate">Enter an activation code</string>
 </resources>
