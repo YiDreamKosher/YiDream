@@ -64,8 +64,8 @@ class DeviceOwnerManager(private val context: Context) {
         "com.bbk.appstore", "com.vivo.appstore", "org.fdroid.fdroid", "com.aurora.store"
     )
     private val lockdownPreferences get() = context.getSharedPreferences("yidream_installation_lock", Context.MODE_PRIVATE)
-    private val profilePreferences get() = context.getSharedPreferences("yidream_usb_app_profile", Context.MODE_PRIVATE)
-    private val profilePreferences get() = context.getSharedPreferences("yidream_managed_app_profile", Context.MODE_PRIVATE)
+    private val usbProfilePreferences get() = context.getSharedPreferences("yidream_usb_app_profile", Context.MODE_PRIVATE)
+    private val remoteProfilePreferences get() = context.getSharedPreferences("yidream_managed_app_profile", Context.MODE_PRIVATE)
     private val users get() = context.getSystemService(UserManager::class.java)
 
     private fun installationChannels(): Set<String> {
@@ -99,7 +99,7 @@ class DeviceOwnerManager(private val context: Context) {
     fun setAppBlocked(packageName: String, blocked: Boolean): Boolean {
         if (!isDeviceOwner()) return false
         return try {
-            if (!blocked && (isDebuggingBlocked() || profilePreferences.contains("profile")) &&
+            if (!blocked && (isDebuggingBlocked() || usbProfilePreferences.contains("profile")) &&
                 isInstallationChannel(packageName)) return false
             if (dpm.isApplicationHidden(adminComponent, packageName) != blocked &&
                 !dpm.setApplicationHidden(adminComponent, packageName, blocked)) return false
@@ -114,43 +114,22 @@ class DeviceOwnerManager(private val context: Context) {
         if (!DevicePolicy.validPackageName(packageName) || packageName == context.packageName) return false
         return try {
             val app = installedApp(packageName) ?: return false
-            val hasProfile = profilePreferences.contains("profile")
+            val hasProfile = usbProfilePreferences.contains("profile")
             if (!canManageApp(app, criticalPackages(), hasProfile)) return false
             if (hasProfile) {
                 if (packageName !in profilePackages() && packageName !in knownProfileUtilities &&
                     packageName !in launchableApps().keys) return false
                 // A hidden package may disappear from the launcher inventory before a later remote allow.
                 if (!allowed) {
-                    val managed = profilePreferences.getStringSet("remote_managed", emptySet()).orEmpty()
-                    if (packageName !in managed && !profilePreferences.edit()
+                    val managed = usbProfilePreferences.getStringSet("remote_managed", emptySet()).orEmpty()
+                    if (packageName !in managed && !usbProfilePreferences.edit()
                             .putStringSet("remote_managed", managed + packageName).commit()) return false
                 }
             }
             setAppBlocked(packageName, blocked = !allowed)
         } catch (_: Exception) {
             false
-    private fun criticalPackages(): Set<String> = buildSet {
-        addAll(listOf(context.packageName, "android", "com.android.settings", "com.android.systemui",
-            "com.android.permissioncontroller", "com.google.android.permissioncontroller",
-            "com.android.packageinstaller", "com.google.android.packageinstaller"))
-        val telecom = context.getSystemService(TelecomManager::class.java)
-        telecom?.defaultDialerPackage?.let(::add)
-        if (Build.VERSION.SDK_INT >= 29) telecom?.systemDialerPackage?.let(::add)
-        Telephony.Sms.getDefaultSmsPackage(context)?.let(::add)
-        context.getSystemService(InputMethodManager::class.java)?.enabledInputMethodList
-            ?.forEach { add(it.packageName) }
-        runCatching { WebView.getCurrentWebViewPackage()?.packageName }.getOrNull()?.let(::add)
-        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-        @Suppress("DEPRECATION")
-        context.packageManager.queryIntentActivities(home, 0).forEach { add(it.activityInfo.packageName) }
-    }
-
-    private fun installedApp(packageName: String): ApplicationInfo? = try {
-        @Suppress("DEPRECATION")
-        context.packageManager.getApplicationInfo(packageName, PackageManager.MATCH_UNINSTALLED_PACKAGES)
-            .takeIf { it.flags and ApplicationInfo.FLAG_INSTALLED != 0 }
-    } catch (_: PackageManager.NameNotFoundException) {
-        null
+        }
     }
 
     internal fun canInstallCatalogApp(packageName: String): Boolean = runCatching {
@@ -179,12 +158,12 @@ class DeviceOwnerManager(private val context: Context) {
         val baseline = DeviceAppProfile.packages(policy.deviceProfile)
         val protected = criticalPackages()
         val stores = installationChannels()
-        val tracked = profilePreferences.getStringSet("hidden", emptySet()).orEmpty().toMutableSet()
+        val tracked = remoteProfilePreferences.getStringSet("hidden", emptySet()).orEmpty().toMutableSet()
         val candidates = if (baseline == null) policy.apps.keys + tracked
             else launchablePackages() + knownBrowsers + knownAiApps + knownSocial +
                 DeviceAppProfile.qinPackages + policy.apps.keys + tracked
         var applied = true
-        fun persist() = profilePreferences.edit().putStringSet("hidden", tracked.toSet()).commit()
+        fun persist() = remoteProfilePreferences.edit().putStringSet("hidden", tracked.toSet()).commit()
         for (name in candidates) {
             ensureCurrent()
             val explicit = policy.apps[name]
@@ -272,9 +251,9 @@ class DeviceOwnerManager(private val context: Context) {
     }
 
     private fun profilePackages(): Set<String> =
-        profilePreferences.getStringSet("allowed", emptySet()).orEmpty() +
-            profilePreferences.getStringSet("hidden", emptySet()).orEmpty() +
-            profilePreferences.getStringSet("remote_managed", emptySet()).orEmpty()
+        usbProfilePreferences.getStringSet("allowed", emptySet()).orEmpty() +
+            usbProfilePreferences.getStringSet("hidden", emptySet()).orEmpty() +
+            usbProfilePreferences.getStringSet("remote_managed", emptySet()).orEmpty()
 
     private fun installedApp(packageName: String): ApplicationInfo? = try {
         @Suppress("DEPRECATION")
@@ -294,14 +273,14 @@ class DeviceOwnerManager(private val context: Context) {
             val protected = criticalPackages()
             val stores = installationChannels().filterTo(mutableSetOf()) { installedApp(it) != null }
             if (stores.any { it in protected }) return@runCatching false
-            val tracked = profilePreferences.getStringSet("hidden", emptySet()).orEmpty().toMutableSet()
+            val tracked = usbProfilePreferences.getStringSet("hidden", emptySet()).orEmpty().toMutableSet()
             val candidates = launchableApps() + tracked.mapNotNull { name -> installedApp(name)?.let { name to it } }
             val eligible = candidates.values.filter {
                 it.packageName !in stores && canManageApp(it, protected, useProfileUtilities = true)
             }.mapTo(mutableSetOf()) { it.packageName }
             val remoteRules = RemoteDevicePolicy.current(context)?.apps.orEmpty()
             val changes = profile.changes(eligible, tracked, remoteRules)
-            fun persistHidden() = profilePreferences.edit().putStringSet("hidden", tracked.toSet()).commit()
+            fun persistHidden() = usbProfilePreferences.edit().putStringSet("hidden", tracked.toSet()).commit()
 
             for (name in changes.hide) {
                 if (!dpm.isApplicationHidden(adminComponent, name)) {
@@ -322,13 +301,13 @@ class DeviceOwnerManager(private val context: Context) {
                 if (!persistHidden()) return@runCatching false
             }
             if (!protectInstallationChannels(stores)) return@runCatching false
-            profilePreferences.edit().putString("profile", profile.type.value)
+            usbProfilePreferences.edit().putString("profile", profile.type.value)
                 .putStringSet("allowed", profile.allowedPackages.intersect(eligible)).commit()
         }.getOrDefault(false)
     }
 
     private fun restoreProfileApps() {
-        val tracked = profilePreferences.getStringSet("hidden", emptySet()).orEmpty()
+        val tracked = usbProfilePreferences.getStringSet("hidden", emptySet()).orEmpty()
         if (tracked.isNotEmpty()) {
             val critical = criticalPackages()
             val remoteDenied = RemoteDevicePolicy.current(context)?.apps.orEmpty()
@@ -340,7 +319,7 @@ class DeviceOwnerManager(private val context: Context) {
                 }
             }
         }
-        check(profilePreferences.edit().clear().commit())
+        check(usbProfilePreferences.edit().clear().commit())
     }
 
     fun isAppBlocked(packageName: String): Boolean {
@@ -450,10 +429,10 @@ class DeviceOwnerManager(private val context: Context) {
         if (!isDeviceOwner()) return
         restoreProfileApps()
         val denied = RemoteDevicePolicy.current(context)?.apps.orEmpty().filterValues { !it }.keys
-        profilePreferences.getStringSet("hidden", emptySet()).orEmpty().filterNot { it in denied }.forEach {
+        remoteProfilePreferences.getStringSet("hidden", emptySet()).orEmpty().filterNot { it in denied }.forEach {
             runCatching { dpm.setApplicationHidden(adminComponent, it, false) }
         }
-        profilePreferences.edit().clear().apply()
+        remoteProfilePreferences.edit().clear().apply()
         (baseRestrictions + UserManager.DISALLOW_INSTALL_APPS + UserManager.DISALLOW_DEBUGGING_FEATURES).forEach {
             try { dpm.clearUserRestriction(adminComponent, it) } catch (e: Exception) { }
         }

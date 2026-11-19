@@ -219,29 +219,5 @@ class LockdownAndTileTest {
         shadowOf(context.packageManager).installPackage(info)
     }
 
-    @Suppress("DEPRECATION")
-    private fun installLaunchable(name: String, additionalFlags: Int = 0) {
-        val app = ApplicationInfo().apply {
-            packageName = name
-            flags = ApplicationInfo.FLAG_INSTALLED or additionalFlags
-            enabled = true
-        }
-        val activity = ActivityInfo().apply {
-            packageName = name
-            this.name = "$name.MainActivity"
-            applicationInfo = app
-            enabled = true
-            exported = true
-        }
-        val packages = shadowOf(context.packageManager)
-        packages.installPackage(PackageInfo().apply {
-            packageName = name
-            applicationInfo = app
-            activities = arrayOf(activity)
-        })
-        packages.addResolveInfoForIntent(
-            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),
-            ResolveInfo().apply { activityInfo = activity }
-        )
-    }
+
 }
