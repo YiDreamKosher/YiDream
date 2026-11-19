@@ -33,7 +33,7 @@ internal class FakeAppAccountClient(var savedSession: Boolean = false) : AppAcco
     var activationFailure: Exception? = null
     var activations = 0
     override val hasSession get() = savedSession
-    val access = AppAccess(AppAccount("test-account", "customer@example.invalid", "+33712345678", true), "90c0e024-62e3-48ec-8c4a-6d148d3745c1")
+    var access = AppAccess(AppAccount("test-account", "customer@example.invalid", "+33712345678", true), "90c0e024-62e3-48ec-8c4a-6d148d3745c1")
     override suspend fun validateSession(): AppAccess {
         validationFailure?.let { throw it }
         check(savedSession)
@@ -144,10 +144,34 @@ class AccountGateTest {
         launch()
         assertEquals(0, fake.activations)
         assertNull(activity.findViewById<View>(R.id.pageHome))
+        controller.pause().resume()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(0, fake.activations)
+        assertEquals("A".repeat(32), activity.findViewById<EditText>(R.id.accountCode).text.toString())
         activity.findViewById<Button>(R.id.accountKeep).performClick()
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(0, fake.activations)
         assertNotNull(activity.findViewById<View>(R.id.pageHome))
+    }
+
+    @Test fun signedInAccountSettingsDoNotOfferAnotherActivationCode() {
+        fake.savedSession = true
+        launch()
+        activity.findViewById<View>(R.id.tabSettings).performClick()
+        activity.findViewById<View>(R.id.settingsOpenAccount).performClick()
+        val account = activity.findViewById<ViewGroup>(R.id.settingsPageAccount)
+        fun buttons(parent: ViewGroup): List<Button> = (0 until parent.childCount).flatMap { index ->
+            val view = parent.getChildAt(index)
+            if (view is ViewGroup) buttons(view) else listOfNotNull(view as? Button)
+        }
+        assertFalse(buttons(account).any { it.text == activity.getString(R.string.account_reactivate) })
+        assertNotNull(account.findViewById<View>(R.id.accountLogout))
+        assertNotNull(account.findViewById<View>(R.id.accountSettingsWhatsApp))
+        assertEquals(0, fake.activations)
+        controller.pause().resume()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNotNull(activity.findViewById<View>(R.id.pageHome))
+        assertEquals(0, fake.activations)
     }
 
     @Test fun cachedSessionCannotExposeWorkspaceWhenValidationFails() {
@@ -168,6 +192,47 @@ class AccountGateTest {
         assertNotNull(activity.findViewById<View>(R.id.accountScreen))
         assertNull(activity.findViewById<View>(R.id.statusBanner))
         assertNull(activity.findViewById<View>(R.id.pageHome))
+    }
+
+    @Test fun profileProvisioningFileStaysAvailableWhenItCannotBeApplied() {
+        val configuration = File(app.getExternalFilesDir(null), "yidream_config.json")
+        configuration.parentFile?.mkdirs()
+        configuration.writeText("""{"app_profile":"mp3","allowed_packages":[],"profile_request_id":"90c0e024-62e3-48ec-8c4a-6d148d3745c1"}""")
+        try {
+            launch()
+            assertTrue("A failed profile import must leave the configuration for retry", configuration.exists())
+            assertFalse("A failed profile import must not be confirmed over USB",
+                File(configuration.parentFile, "yidream_config_applied.json").exists())
+            assertNotNull(activity.findViewById<View>(R.id.accountScreen))
+        } finally {
+            configuration.delete()
+        }
+    }
+
+    @Test fun appliedProfileAcknowledgesOnlyItsOwnReceiptNonce() {
+        val owner = DeviceOwnerManager(app)
+        shadowOf(owner.dpm).setDeviceOwner(owner.adminComponent)
+        val configuration = File(app.getExternalFilesDir(null), "yidream_config.json")
+        val receipt = File(configuration.parentFile, "yidream_config_applied.json")
+        val nonce = "90c0e024-62e3-48ec-8c4a-6d148d3745c1"
+        val key = "A".repeat(43) + "="
+        configuration.parentFile?.mkdirs()
+        configuration.writeText(org.json.JSONObject()
+            .put("app_profile", "qin")
+            .put("allowed_packages", org.json.JSONArray())
+            .put("profile_request_id", nonce)
+            .put("unlock_intermediate_key", key)
+            .toString())
+        try {
+            launch()
+            assertFalse(configuration.exists())
+            val response = org.json.JSONObject(receipt.readText())
+            assertEquals(1, response.length())
+            assertEquals(nonce, response.getString("profile_request_id"))
+        } finally {
+            configuration.delete()
+            receipt.delete()
+        }
     }
 
     @Test fun foregroundAlwaysRechecksAndHidesPreviouslyValidatedWorkspace() {

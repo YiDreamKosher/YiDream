@@ -1,7 +1,7 @@
 {
-  "versionCode": 23,
-  "versionName": "v6.3.1",
+  "versionCode": 26,
+  "versionName": "v6.5.0",
   "apkUrl": "https://yidreamkosher.github.io/YiDream/admin/yidream.apk",
   "apkSha256": "",
-  "changelog": "Improves account access on filtered networks and prevents concurrent session updates from dropping access. Request site access for 24 hours or until a selected trip end time. Temporary access expires in the YiDream reader even when the phone is offline. Administrators can prepare an account before assigning an approved phone."
+  "changelog": "Fixed top tabs with swipe navigation, an overview of installed approved apps, clearer settings and a language list. MP3 hides Sites and App Store by default; an administrator can reopen either section for a device. Updates remain accessible when the store is hidden. Optional Kosher home wallpaper with preview, plus Quick Settings access when the launcher icon is hidden."
 }

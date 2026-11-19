@@ -1,0 +1,25 @@
+<resources>
+    <item name="kosherWatermarkCard" type="id" />
+    <item name="kosherWatermarkStatus" type="id" />
+    <item name="kosherWatermarkConfigure" type="id" />
+    <item name="kosherWatermarkRemove" type="id" />
+    <string name="kosher_wallpaper_title">Filigrane Kosher</string>
+    <string name="kosher_wallpaper_summary">Personnalisez le fond d’accueil avec la mention « Kosher ».</string>
+    <string name="kosher_wallpaper_configure">Personnaliser le filigrane</string>
+    <string name="kosher_wallpaper_remove">Choisir un autre fond d’écran</string>
+    <string name="kosher_wallpaper_active">Fond Kosher appliqué à l’accueil.</string>
+    <string name="kosher_wallpaper_inactive">Option désactivée.</string>
+    <string name="kosher_wallpaper_unavailable">Ce téléphone ne permet pas de modifier le fond d’écran.</string>
+    <string name="kosher_wallpaper_picker_unavailable">Ouvrez les réglages du téléphone pour choisir un autre fond d’écran.</string>
+    <string name="kosher_wallpaper_back">Retour</string>
+    <string name="kosher_wallpaper_explanation">Ce fond remplace celui de l’accueil, derrière les icônes. Il ne se superpose pas aux applications et ne modifie pas le fond de l’écran verrouillé. Pour le retirer, choisissez un autre fond d’écran dans les réglages du téléphone.</string>
+    <string name="kosher_wallpaper_preview">Aperçu du fond d’accueil Kosher</string>
+    <string name="kosher_wallpaper_home_only">Écran d’accueil uniquement · aperçu du modèle actuel</string>
+    <string name="kosher_wallpaper_choose_image">Choisir une image de fond</string>
+    <string name="kosher_wallpaper_default">Utiliser le fond YiDream</string>
+    <string name="kosher_wallpaper_apply">Appliquer à l’accueil</string>
+    <string name="kosher_wallpaper_wait">Préparation…</string>
+    <string name="kosher_wallpaper_applied">Fond Kosher appliqué à l’accueil.</string>
+    <string name="kosher_wallpaper_apply_failed">Le fond n’a pas pu être appliqué. Réessayez depuis cet aperçu.</string>
+    <string name="kosher_wallpaper_image_unavailable">Cette image ne peut pas être utilisée. Choisissez une autre image ou le fond YiDream.</string>
+</resources>

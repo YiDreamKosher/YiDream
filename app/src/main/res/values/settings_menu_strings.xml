@@ -2,7 +2,7 @@
 <resources>
     <string name="settings_menu_description">Choose a setting to manage.</string>
     <string name="settings_menu_account_detail">Your identity and sign-in</string>
-    <string name="settings_menu_appearance_detail">Choose your navigation style</string>
+    <string name="settings_menu_appearance_detail">Affichage et accès rapide</string>
     <string name="settings_menu_language_detail">English, French, Hebrew and Yiddish</string>
     <string name="settings_menu_updates">YiDream updates</string>
     <string name="settings_menu_updates_detail">Check and install application updates</string>

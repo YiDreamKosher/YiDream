@@ -3,6 +3,7 @@ package com.yidream.mdm
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.os.Bundle
+import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -120,6 +121,44 @@ class ChromeManagedPolicyTest {
         assertTrue(owner.closeManagedChrome())
         assertFalse(owner.canOpenManagedChrome(policy))
         assertTrue(owner.isAppBlocked(chrome))
+    }
+
+    @Test fun mp3RequiresAnExplicitWebOverrideAndGenericAppRulesCannotReopenChrome() = runBlocking {
+        val owner = configureOwner()
+        installChrome()
+        val mp3 = DevicePolicy(4, mapOf(chrome to true), mapOf("example.org" to true),
+            deviceProfile = "mp3", managedChromeEnabled = true)
+
+        assertFalse(ChromeManagedPolicy.apply(context, owner, mp3))
+        assertEquals(ManagedChromeStatus.READY, owner.applyManagedChrome(mp3) { true })
+        assertTrue(owner.isAppBlocked(chrome))
+        assertTrue(owner.applyRemoteAppPolicy(mp3) {})
+        assertTrue(owner.isAppBlocked(chrome))
+        assertFalse(owner.canOpenManagedChrome(mp3))
+
+        val enabled = mp3.copy(webSectionEnabled = true)
+        assertEquals(ManagedChromeStatus.ACTIVE, owner.applyManagedChrome(enabled) { true })
+        assertTrue(owner.canOpenManagedChrome(enabled))
+        assertFalse(owner.isAppBlocked(chrome))
+        assertTrue(owner.applyRemoteAppPolicy(enabled.copy(apps = mapOf(chrome to false))) {})
+        assertFalse("Only the dedicated browser policy controls Chrome", owner.isAppBlocked(chrome))
+    }
+
+    @Test fun turningOffTheWebSectionClosesPreviouslyManagedChromeForEitherProfile() {
+        val owner = configureOwner()
+        installChrome()
+        for (profile in listOf("mp3", "qin")) {
+            val enabled = DevicePolicy(5, emptyMap(), mapOf("example.org" to true),
+                deviceProfile = profile, webSectionEnabled = true, managedChromeEnabled = true)
+            assertEquals(ManagedChromeStatus.ACTIVE, owner.applyManagedChrome(enabled) { true })
+            assertFalse(owner.isAppBlocked(chrome))
+
+            val disabled = enabled.copy(revision = 6, webSectionEnabled = false)
+            assertEquals(ManagedChromeStatus.READY, owner.applyManagedChrome(disabled) { true })
+            assertTrue(owner.isAppBlocked(chrome))
+            assertFalse(owner.canOpenManagedChrome(disabled))
+            assertFalse(ChromeManagedPolicy.matches(context, owner, disabled))
+        }
     }
 
     private fun configureOwner(): DeviceOwnerManager = DeviceOwnerManager(context).also { owner ->

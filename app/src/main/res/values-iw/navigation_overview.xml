@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="home_overview_title">סקירה כללית</string>
+  <string name="home_overview_description">האפליקציות והפעולות הזמינות במכשיר זה.</string>
+  <string name="home_apps_title">האפליקציות שלי</string>
+  <string name="home_apps_waiting">האפליקציות המורשות יופיעו לאחר סנכרון המכשיר.</string>
+  <string name="home_apps_empty">אין כרגע אפליקציות מותקנות ומורשות להצגה.</string>
+  <string name="navigation_store_tab">אפליקציות</string>
+  <string name="navigation_tabs_title">ניווט בכרטיסיות</string>
+  <string name="navigation_swipe_hint">געו בכרטיסייה למעלה או החליקו הצידה למעבר בין דפים. המנהל קובע אילו חלקים זמינים.</string>
+  <string name="settings_tools_title">כלים ותמיכה</string>
+  <string name="settings_tools_description">עדכונים, הגנה ויצירת קשר</string>
+  <string name="settings_allowed_app_updates">אפליקציות מורשות</string>
+</resources>

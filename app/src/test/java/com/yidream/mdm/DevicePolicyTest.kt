@@ -121,4 +121,144 @@ class DevicePolicyTest {
         assertTrue(enabled.managedChromeEnabled)
         assertEquals(enabled, DevicePolicy.parse(enabled.toJson()))
     }
+
+    @Test fun managedChromePolicyRetainsProfileSectionAndRequestFlagsThroughOfflineCaching() {
+        val value = JSONObject("""{
+            "revision":12,"apps":{},"sites":{"example.org":true},"temporary_sites":{},
+            "server_time":"2026-11-19T14:00:00Z","device_profile":"mp3",
+            "app_requests_enabled":false,"site_requests_enabled":false,
+            "web_enabled":true,"app_store_enabled":false,"managed_chrome":{"enabled":true}
+        }""")
+        val policy = DevicePolicy.parse(value, requireWindows = true)
+        val cache = policy.toBootCache(2)
+        val restored = requireNotNull(DevicePolicy.restoreBootCache(cache, 2, cache.getLong("checked_elapsed")))
+        assertEquals(policy, restored)
+        assertEquals("mp3", restored.deviceProfile)
+        assertTrue(restored.webEnabled)
+        assertFalse(restored.appStoreEnabled)
+        assertFalse(restored.appRequestsEnabled)
+        assertFalse(restored.canRequestSites)
+        assertTrue(restored.managedChromeEnabled)
+        assertFalse(DevicePolicy.parse(value, acceptsManagedChrome = false).managedChromeEnabled)
+    }
+
+    @Test fun mp3DoesNotOpenPermanentOrTemporaryWebRulesAndKeepsSeparateAppRequestPermission() {
+        val value = JSONObject("""{
+            "revision":8,"apps":{},"sites":{"example.org":true},"server_time":"2026-11-12T11:00:00Z",
+            "temporary_sites":{"trip.example.org":"2026-11-13T11:00:00Z"},
+            "device_profile":"mp3","app_requests_enabled":true,"site_requests_enabled":true
+        }""")
+        val policy = DevicePolicy.parse(value, requireWindows = true)
+        val cache = policy.toBootCache(2)
+        val restored = requireNotNull(DevicePolicy.restoreBootCache(cache, 2, cache.getLong("checked_elapsed")))
+        assertFalse(restored.webEnabled)
+        assertFalse(restored.canRequestSites)
+        assertTrue(restored.appRequestsEnabled)
+        assertFalse(restored.permits(URI("https://example.org/")))
+        assertFalse(restored.permits(URI("https://trip.example.org/")))
+        assertFalse(restored.appStoreEnabled)
+        assertEquals("home", MainNavigation.restore("sites", restored.webEnabled, restored.appStoreEnabled))
+    }
+
+    @Test fun legacyPolicyPreservesBothRequestActionsAndQinUsesIndependentSwitches() {
+        val value = JSONObject("""{"revision":4,"apps":{},"sites":{}}""")
+        val legacy = DevicePolicy.parse(value)
+        assertTrue(legacy.canRequestSites)
+        assertTrue(legacy.appRequestsEnabled)
+        val qin = DevicePolicy.parse(value.put("device_profile", "qin").put("app_requests_enabled", false))
+        assertTrue(qin.canRequestSites)
+        assertFalse(qin.appRequestsEnabled)
+        value.put("site_requests_enabled", "false")
+        assertTrue(runCatching { DevicePolicy.parse(value) }.isFailure)
+    }
+
+    @Test fun anUninstalledCatalogPackageRequiresExplicitApprovalEvenWhenItIsInTheProfile() {
+        val app = "com.rhmsoft.pulsar"
+        val mp3 = DevicePolicy(8, emptyMap(), emptyMap(), deviceProfile = "mp3")
+        assertTrue(CatalogUpdatePolicy.canInstall(mp3, app, 1L, 2L, allowFirstInstall = false))
+        assertFalse(CatalogUpdatePolicy.canInstall(mp3, app, null, 2L, allowFirstInstall = true))
+        val approved = mp3.copy(apps = mapOf(app to true))
+        assertTrue(CatalogUpdatePolicy.canInstall(approved, app, null, 2L, allowFirstInstall = true))
+        assertFalse(CatalogUpdatePolicy.canInstall(approved, app, null, 2L, allowFirstInstall = false))
+        assertFalse(CatalogUpdatePolicy.canInstall(mp3.copy(apps = mapOf(app to false)), app, 1L, 2L,
+            allowFirstInstall = false))
+    }
+
+    @Test fun adminCanEnableEachMp3SectionWithoutGrantingUnapprovedSitesOrApps() {
+        val value = JSONObject("""{
+            "revision":9,"apps":{"com.example.denied":false},"sites":{"example.org":true},
+            "device_profile":"mp3","web_enabled":true,"app_store_enabled":true,
+            "site_requests_enabled":false
+        }""")
+        val policy = DevicePolicy.parse(value)
+        assertTrue(policy.webEnabled)
+        assertTrue(policy.appStoreEnabled)
+        assertFalse(policy.canRequestSites)
+        assertTrue(policy.permits(URI("https://example.org/")))
+        assertFalse(policy.permits(URI("https://unapproved.org/")))
+        assertFalse(policy.allowsApp("com.example.denied"))
+        assertEquals(policy, DevicePolicy.parse(policy.toJson()))
+        val cached = policy.toBootCache(2)
+        val offline = requireNotNull(DevicePolicy.restoreBootCache(cached, 2, cached.getLong("checked_elapsed")))
+        assertTrue(offline.webEnabled)
+        assertTrue(offline.appStoreEnabled)
+        assertEquals(listOf("home", "store", "sites", "settings"),
+            MainNavigation.visibleTabs(offline.webEnabled, offline.appStoreEnabled))
+    }
+
+    @Test fun disablingASectionDoesNotChangeInstalledAppUpdateAuthorization() {
+        val app = "com.rhmsoft.pulsar"
+        val policy = DevicePolicy(10, emptyMap(), emptyMap(), deviceProfile = "qin",
+            webSectionEnabled = false, appStoreSectionEnabled = false)
+        assertFalse(policy.webEnabled)
+        assertFalse(policy.appStoreEnabled)
+        assertEquals(listOf("home", "settings"), MainNavigation.visibleTabs(policy.webEnabled, policy.appStoreEnabled))
+        assertTrue(CatalogUpdatePolicy.canInstall(policy, app, 1L, 2L, allowFirstInstall = false))
+        assertEquals(policy, DevicePolicy.parse(policy.toJson()))
+    }
+
+    @Test fun sectionFlagsAcceptOnlyExplicitBooleansAndPreserveLegacyProfileDefaults() {
+        val value = JSONObject("""{"revision":1,"apps":{},"sites":{}}""")
+        assertTrue(DevicePolicy.parse(value).appStoreEnabled)
+        assertTrue(DevicePolicy.parse(value.put("device_profile", "qin")).webEnabled)
+        val mp3 = DevicePolicy.parse(value.put("device_profile", "mp3"))
+        assertFalse(mp3.webEnabled)
+        assertFalse(mp3.appStoreEnabled)
+        for (key in listOf("web_enabled", "app_store_enabled")) {
+            for (invalid in listOf("true", "false", 1, JSONObject.NULL)) {
+                assertTrue(runCatching { DevicePolicy.parse(JSONObject(value.toString()).put(key, invalid)) }.isFailure)
+            }
+        }
+        val onlyWeb = DevicePolicy.parse(value.put("web_enabled", true))
+        assertTrue(onlyWeb.webEnabled)
+        assertFalse(onlyWeb.appStoreEnabled)
+    }
+
+    @Test fun installedZemerKeepsVerifiedUpdatesOnBothProfilesWithStoreHidden() {
+        val pkg = "com.jtech.zemer"
+        for (profile in listOf("mp3", "qin")) {
+            val policy = DevicePolicy(10, emptyMap(), emptyMap(), deviceProfile = profile,
+                appStoreSectionEnabled = false)
+            assertTrue(CatalogUpdatePolicy.canInstall(policy, pkg, 1L, 2L, allowFirstInstall = false))
+            assertFalse(CatalogUpdatePolicy.canInstall(policy, pkg, null, 2L, allowFirstInstall = true))
+            assertFalse(CatalogUpdatePolicy.canInstall(policy.copy(apps = mapOf(pkg to false)),
+                pkg, 1L, 2L, allowFirstInstall = false))
+            assertFalse(CatalogUpdatePolicy.isReady("https://example.invalid/zemer.apk", "", 2L))
+            assertFalse(CatalogUpdatePolicy.canInstall(policy, pkg, 2L, 1L, allowFirstInstall = false))
+        }
+    }
+
+    @Test fun acceptsExactPlayListingAndPackageIdentifiers() {
+        assertEquals("com.example.app", MdmService.normalizeAppPackage("com.example.app"))
+        assertEquals("com.example.app", MdmService.normalizeAppPackage(
+            "https://play.google.com/store/apps/details?id=com.example.app&hl=fr"
+        ))
+        listOf(
+            "https://play.google.com.example.org/store/apps/details?id=com.example.app",
+            "https://play.google.com/store/apps/details?id=com.example.app&id=com.other.app",
+            "https://play.google.com/store/search?id=com.example.app"
+        ).forEach { input ->
+            assertTrue(runCatching { MdmService.normalizeAppPackage(input) }.isFailure)
+        }
+    }
 }

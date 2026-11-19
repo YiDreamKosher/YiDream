@@ -2,11 +2,15 @@ package com.yidream.mdm
 
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.content.pm.ResolveInfo
 import android.os.Bundle
 import android.os.UserManager
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -81,6 +85,46 @@ class LockdownAndTileTest {
         assertTrue(users.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES))
     }
 
+    @Test fun usbProfileHidesEligibleAppsPreservesUnknownSystemAndCanReopenADeviceApp() {
+        val owner = configureOwner()
+        installStore()
+        val waze = "com.waze"
+        val player = "com.rhmsoft.pulsar"
+        val unknownSystem = "com.vendor.system"
+        val previouslyHidden = "com.example.previouslyhidden"
+        installLaunchable(waze, ApplicationInfo.FLAG_SYSTEM)
+        installLaunchable(player)
+        installLaunchable(unknownSystem, ApplicationInfo.FLAG_SYSTEM)
+        installLaunchable(previouslyHidden)
+        assertTrue(owner.setAppBlocked(previouslyHidden, true))
+
+        assertTrue(owner.applyUsbAppProfile(UsbAppProfile(UsbAppProfileType.MP3, setOf(player, previouslyHidden))))
+        assertTrue(owner.isAppBlocked(waze))
+        assertTrue(owner.isAppBlocked(store))
+        assertFalse(owner.isAppBlocked(player))
+        assertFalse(owner.isAppBlocked(unknownSystem))
+        assertFalse(owner.isDebuggingBlocked())
+        assertFalse(owner.applyRemoteAppRule(store, allowed = true))
+        assertTrue(owner.applyRemoteAppRule(waze, allowed = true))
+        assertFalse(owner.isAppBlocked(waze))
+        assertTrue(owner.applyRemoteAppRule(waze, allowed = false))
+
+        owner.removeBaseRestrictions()
+        assertFalse(owner.isAppBlocked(waze))
+        assertTrue(owner.isAppBlocked(previouslyHidden))
+    }
+
+    @Test fun usbProfileKeepsDebuggingAvailableWhenAnEligiblePackageCannotBeHidden() {
+        val owner = configureOwner()
+        val packageName = "com.example.unhideable"
+        installLaunchable(packageName)
+        shadowOf(owner.dpm).failSetApplicationHiddenFor(listOf(packageName))
+
+        assertFalse(owner.applyUsbAppProfile(UsbAppProfile(UsbAppProfileType.QIN, emptySet())))
+        assertFalse(owner.isDebuggingBlocked())
+        assertFalse(owner.isAppBlocked(packageName))
+    }
+
     @Test fun launcherStaysVisibleUntilTileIsConfirmedAndReturnsWhenTileIsRemoved() {
         val launch = QuickSettingsLaunch(context)
         assertFalse(launch.hideWhenReady())
@@ -97,6 +141,37 @@ class LockdownAndTileTest {
             context.packageManager.getComponentEnabledSetting(launcher))
     }
 
+    @Test fun remoteClassificationCanRestoreItsOwnHiddenAppAndKeepOtherBlocks() = runBlocking {
+        val owner = configureOwner()
+        val waze = "com.waze"
+        val player = "com.rhmsoft.pulsar"
+        val notes = "com.android.notes"
+        val systemApp = "com.vendor.system"
+        val previouslyHidden = "com.example.previouslyhidden"
+        installLaunchable(waze)
+        installLaunchable(player)
+        installLaunchable(notes, ApplicationInfo.FLAG_SYSTEM)
+        installLaunchable(systemApp, ApplicationInfo.FLAG_SYSTEM)
+        installLaunchable(previouslyHidden)
+        assertTrue(owner.setAppBlocked(previouslyHidden, true))
+
+        val mp3 = DevicePolicy(1, emptyMap(), emptyMap(), deviceProfile = "mp3")
+        assertTrue(owner.applyRemoteAppPolicy(mp3) {})
+        assertTrue(owner.isAppBlocked(waze))
+        assertFalse(owner.canInstallCatalogApp(waze))
+        assertTrue(owner.canInstallCatalogApp("com.example.future"))
+        assertFalse(owner.canInstallCatalogApp(store))
+        assertFalse(owner.isAppBlocked(player))
+        assertFalse(owner.isAppBlocked(notes))
+        assertFalse(owner.isAppBlocked(systemApp))
+        assertTrue(owner.applyRemoteAppPolicy(mp3.copy(deviceProfile = "qin")) {})
+        assertFalse(owner.isAppBlocked(waze))
+        assertTrue(owner.isAppBlocked(previouslyHidden))
+
+        assertTrue(owner.applyRemoteAppPolicy(mp3.copy(apps = mapOf(waze to true, "com.example.future" to true))) {})
+        assertFalse(owner.isAppBlocked(waze))
+    }
+
     private fun configureOwner(legacyInstallLock: Boolean = false): DeviceOwnerManager {
         val owner = DeviceOwnerManager(context)
         shadowOf(owner.dpm).setDeviceOwner(owner.adminComponent)
@@ -104,6 +179,33 @@ class LockdownAndTileTest {
             owner.dpm.addUserRestriction(owner.adminComponent, UserManager.DISALLOW_INSTALL_APPS)
         }
         return owner
+    }
+
+    @Suppress("DEPRECATION")
+    private fun installLaunchable(name: String, additionalFlags: Int = 0) {
+        val app = ApplicationInfo().apply {
+            packageName = name
+            flags = ApplicationInfo.FLAG_INSTALLED or additionalFlags
+            enabled = true
+        }
+        val activity = ActivityInfo().apply {
+            packageName = name
+            this.name = "$name.MainActivity"
+            applicationInfo = app
+            enabled = true
+            exported = true
+        }
+        val info = PackageInfo().apply {
+            packageName = name
+            applicationInfo = app
+            activities = arrayOf(activity)
+        }
+        val packages = shadowOf(context.packageManager)
+        packages.installPackage(info)
+        val launchIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        packages.addResolveInfoForIntent(launchIntent, ResolveInfo().apply { activityInfo = activity })
+        assertTrue(context.packageManager.queryIntentActivities(launchIntent, PackageManager.MATCH_UNINSTALLED_PACKAGES)
+            .any { it.activityInfo.packageName == name })
     }
 
     private fun installStore() {
@@ -116,4 +218,6 @@ class LockdownAndTileTest {
         }
         shadowOf(context.packageManager).installPackage(info)
     }
+
+
 }

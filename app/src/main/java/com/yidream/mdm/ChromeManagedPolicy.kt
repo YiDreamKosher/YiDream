@@ -35,7 +35,7 @@ internal object ChromeManagedPolicy {
     /** A true result verifies Android's saved bundle, not Chrome's navigation enforcement. */
     @Synchronized
     fun apply(context: Context, owner: DeviceOwnerManager, policy: DevicePolicy): Boolean {
-        if (!owner.isDeviceOwner() || !canManage(context)) return false
+        if (!policy.webEnabled || !owner.isDeviceOwner() || !canManage(context)) return false
         return runCatching {
             val (blocklist, allowlist) = permanentLists(policy)
             val saved = owner.dpm.getApplicationRestrictions(owner.adminComponent, PACKAGE_NAME)
@@ -52,7 +52,7 @@ internal object ChromeManagedPolicy {
 
     @Synchronized
     fun matches(context: Context, owner: DeviceOwnerManager, policy: DevicePolicy): Boolean {
-        if (!owner.isDeviceOwner() || !canManage(context)) return false
+        if (!policy.webEnabled || !owner.isDeviceOwner() || !canManage(context)) return false
         return runCatching {
             val (blocklist, allowlist) = permanentLists(policy)
             matches(owner.dpm.getApplicationRestrictions(owner.adminComponent, PACKAGE_NAME), blocklist, allowlist)

@@ -6,7 +6,8 @@ import android.os.Bundle
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
-import android.widget.RadioGroup
+import android.widget.LinearLayout
+import androidx.appcompat.widget.AppCompatRadioButton
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -46,37 +47,65 @@ class SettingsNavigationTest {
             .edit().clear().commit()
     }
 
-    @Test fun homeNavigationPreferenceSurvivesActivityRecreationAndNeverTrapsUser() {
-        activity.findViewById<View>(R.id.homeOpenSettings).performClick()
+    @Test fun fixedTopTabsRemainAvailableAfterRecreationWithoutANavigationModeSetting() {
+        activity.findViewById<View>(R.id.tabSettings).performClick()
         activity.findViewById<View>(R.id.settingsOpenAppearance).performClick()
-        activity.findViewById<RadioGroup>(R.id.navigationOptions).check(R.id.navigationHomeOption)
-        assertEquals(View.GONE, activity.findViewById<View>(R.id.navigationBar).visibility)
-        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.compactNavigation).visibility)
-        activity.findViewById<View>(R.id.backToHome).performClick()
-        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.pageHome).visibility)
-        assertEquals(View.GONE, activity.findViewById<View>(R.id.compactNavigation).visibility)
-
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.navigationBar).visibility)
+        assertTrue(activity.findViewById<View>(R.id.quickSettingsLauncher).hasOnClickListeners())
         val state = Bundle()
         controller.saveInstanceState(state).pause().stop().destroy()
         controller = Robolectric.buildActivity(MainActivity::class.java).create(state).start().resume().visible()
         shadowOf(Looper.getMainLooper()).idle()
         activity = controller.get()
-        assertEquals(View.GONE, activity.findViewById<View>(R.id.navigationBar).visibility)
-        listOf(R.id.homeOpenStore to R.id.pageStore, R.id.homeOpenSites to R.id.pageSites,
-            R.id.homeOpenSettings to R.id.pageSettings).forEach { (shortcut, page) ->
-            activity.findViewById<View>(shortcut).performClick()
-            assertEquals(View.VISIBLE, activity.findViewById<View>(page).visibility)
-            activity.onBackPressedDispatcher.onBackPressed()
-            assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.pageHome).visibility)
-        }
-        activity.findViewById<View>(R.id.homeOpenSettings).performClick()
-        activity.findViewById<View>(R.id.settingsOpenAppearance).performClick()
-        activity.findViewById<RadioGroup>(R.id.navigationOptions).check(R.id.navigationTabsOption)
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.navigationBar).visibility)
-        assertEquals(View.GONE, activity.findViewById<View>(R.id.compactNavigation).visibility)
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsPageAppearance).visibility)
+        listOf(R.id.tabHome to R.id.pageHome, R.id.tabStore to R.id.pageStore,
+            R.id.tabSites to R.id.pageSites, R.id.tabSettings to R.id.pageSettings).forEach { (tab, page) ->
+            activity.findViewById<View>(tab).performClick()
+            assertEquals(View.VISIBLE, activity.findViewById<View>(page).visibility)
+        }
     }
 
-    @Test fun logoOnlyAppearsOnHomeAndFiveSettingsGroupsRemainSeparate() {
+    @Test fun remoteMp3SectionsHideTheirTabsAndHomeShortcutsAndCanBeEnabledIndependently() {
+        fun update(policy: DevicePolicy) {
+            MainActivity::class.java.getDeclaredMethod("updateRequestNavigation", DevicePolicy::class.java)
+                .apply { isAccessible = true }.invoke(activity, policy)
+        }
+        activity.findViewById<View>(R.id.tabStore).performClick()
+        val mp3 = DevicePolicy(1, emptyMap(), emptyMap(), deviceProfile = "mp3")
+        update(mp3)
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.pageHome).visibility)
+        listOf(R.id.tabStore, R.id.tabSites, R.id.homeOpenStore, R.id.homeOpenSites).forEach {
+            assertEquals(View.GONE, activity.findViewById<View>(it).visibility)
+        }
+        val pager = activity.findViewById<SwipeWorkspaceLayout>(R.id.workspacePager)
+        pager.onPageSwipe?.invoke(true)
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.pageSettings).visibility)
+        update(mp3.copy(revision = 2, webSectionEnabled = true))
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.tabSites).visibility)
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.tabStore).visibility)
+        update(mp3.copy(revision = 3, appStoreSectionEnabled = true))
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.tabStore).visibility)
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.tabSites).visibility)
+    }
+
+    @Test fun languageChoicesAreFourFullWidthRows() {
+        activity.findViewById<View>(R.id.tabSettings).performClick()
+        activity.findViewById<View>(R.id.settingsOpenLanguage).performClick()
+        val list = activity.findViewById<LinearLayout>(R.id.languageRow)
+        assertEquals(LinearLayout.VERTICAL, list.orientation)
+        assertEquals(4, list.childCount)
+        assertEquals(listOf("English", "Français", "עברית", "ייִדיש"),
+            (0 until list.childCount).map { (list.getChildAt(it) as AppCompatRadioButton).text.toString() })
+        (0 until list.childCount).forEach { index ->
+            val row = list.getChildAt(index) as AppCompatRadioButton
+            assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, row.layoutParams.width)
+            assertTrue(row.minHeight >= (48 * activity.resources.displayMetrics.density).toInt())
+            assertTrue(row.hasOnClickListeners())
+        }
+    }
+
+    @Test fun logoOnlyAppearsOnHomeAndExistingSettingsActionsRemainAvailable() {
         val home = activity.findViewById<ViewGroup>(R.id.pageHome)
         val logo = activity.findViewById<View>(R.id.homeLogo)
         assertSame(logo, home.findViewById<View>(R.id.homeLogo))
@@ -93,6 +122,7 @@ class SettingsNavigationTest {
 
     @Test fun filterRemovalStillRequiresTheAdministratorUnlockCode() {
         activity.findViewById<View>(R.id.homeOpenSettings).performClick()
+        activity.findViewById<View>(R.id.settingsOpenSupport).performClick()
         activity.findViewById<View>(R.id.settingsOpenFilter).performClick()
         activity.findViewById<View>(R.id.rowRemoveFilter).performClick()
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
@@ -108,26 +138,43 @@ class SettingsNavigationTest {
         assertFalse("Navigation does not enroll a device", MdmService(activity).paired)
     }
 
-    @Test fun settingsOpenOneSubmenuAndBackReturnsToMenuBeforeHome() {
-        activity.findViewById<View>(R.id.homeOpenSettings).performClick()
-        val destinations = listOf(R.id.settingsOpenAccount to R.id.settingsPageAccount,
+    @Test fun supportGroupsUpdatesFilterAndContactWithPredictableBackNavigation() {
+        activity.findViewById<View>(R.id.tabSettings).performClick()
+        listOf(R.id.settingsOpenAccount to R.id.settingsPageAccount,
             R.id.settingsOpenAppearance to R.id.settingsPageAppearance,
-            R.id.settingsOpenLanguage to R.id.settingsPageLanguage,
-            R.id.rowUpdates to R.id.settingsPageUpdates,
-            R.id.settingsOpenFilter to R.id.settingsPageFilter,
-            R.id.settingsOpenContact to R.id.settingsPageContact)
-        destinations.forEach { (row, page) ->
-            assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsMenu).visibility)
+            R.id.settingsOpenLanguage to R.id.settingsPageLanguage).forEach { (row, page) ->
             activity.findViewById<View>(row).performClick()
-            assertEquals(View.GONE, activity.findViewById<View>(R.id.settingsMenu).visibility)
-            destinations.forEach { (_, otherPage) -> assertEquals(if (otherPage == page) View.VISIBLE else View.GONE,
-                activity.findViewById<View>(otherPage).visibility) }
+            assertEquals(View.VISIBLE, activity.findViewById<View>(page).visibility)
             activity.onBackPressedDispatcher.onBackPressed()
-            assertEquals("Back first opens the settings landing list", View.VISIBLE, activity.findViewById<View>(R.id.settingsMenu).visibility)
-            assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.pageSettings).visibility)
+            assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsMenu).visibility)
+        }
+        activity.findViewById<View>(R.id.settingsOpenSupport).performClick()
+        listOf(R.id.rowUpdates to R.id.settingsPageUpdates,
+            R.id.settingsOpenFilter to R.id.settingsPageFilter,
+            R.id.settingsOpenContact to R.id.settingsPageContact).forEach { (row, page) ->
+            assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsPageSupport).visibility)
+            assertTrue(activity.findViewById<View>(row).isShown)
+            activity.findViewById<View>(row).performClick()
+            assertEquals(View.VISIBLE, activity.findViewById<View>(page).visibility)
+            assertEquals(View.GONE, activity.findViewById<View>(R.id.settingsPageSupport).visibility)
+            activity.onBackPressedDispatcher.onBackPressed()
+            assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsPageSupport).visibility)
+            assertEquals(View.GONE, activity.findViewById<View>(page).visibility)
         }
         activity.onBackPressedDispatcher.onBackPressed()
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsMenu).visibility)
+        activity.onBackPressedDispatcher.onBackPressed()
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.pageHome).visibility)
+    }
+
+    @Test fun updateBadgeRemainsVisibleOnBothSupportAndUpdateDestinations() {
+        val menu = SettingsMenuController(activity) {}
+        menu.setUpdateAvailable(true)
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsToolsUpdateBadge).visibility)
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsUpdateBadge).visibility)
+        menu.setUpdateAvailable(false)
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.settingsToolsUpdateBadge).visibility)
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.settingsUpdateBadge).visibility)
     }
 
     @Test fun restoredSubmenuWaitsForAccountValidationAndKeepsItsDestination() {

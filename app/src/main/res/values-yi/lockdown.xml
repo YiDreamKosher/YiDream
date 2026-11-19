@@ -3,4 +3,5 @@
     <string name="lockdown_admin_recovery">אַדמיניסטראַטאָר־וישאַלט</string>
     <string name="lockdown_incomplete">מען האָט נישט געקענט באַשטעטיקן דעם שלאָס. ווענדט זיך צום אַדמיניסטראַטאָר איידער מען גיט איבער דעם טעלעפֿאָן.</string>
     <string name="lockdown_retry_code">צו פֿיל פּרוּוון. וואַרט 15 מינוט איידער איר פּרוּווט ווידער.</string>
+    <string name="usb_profile_webview">דער בלעטערער %1$s שטעלט אויך צו WebView. קלײַבט אַן אַנדערן WebView־צושטעלער אויפֿן טעלעפֿאָן און פּרוּווט די USB־קאָנפֿיגוראַציע ווידער.</string>
 </resources>

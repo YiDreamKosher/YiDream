@@ -1,0 +1,21 @@
+<resources>
+    <string name="kosher_wallpaper_title">Kosher watermark</string>
+    <string name="kosher_wallpaper_summary">Add “Kosher” to a home wallpaper.</string>
+    <string name="kosher_wallpaper_configure">Customize watermark</string>
+    <string name="kosher_wallpaper_remove">Choose another wallpaper</string>
+    <string name="kosher_wallpaper_active">Kosher home wallpaper is applied.</string>
+    <string name="kosher_wallpaper_inactive">Not applied.</string>
+    <string name="kosher_wallpaper_unavailable">This phone does not allow wallpaper changes.</string>
+    <string name="kosher_wallpaper_picker_unavailable">Open the phone settings to choose another wallpaper.</string>
+    <string name="kosher_wallpaper_back">Back</string>
+    <string name="kosher_wallpaper_explanation">This replaces the home wallpaper behind the icons. It does not overlay apps or change the lock-screen wallpaper. To remove it, choose another wallpaper in the phone settings.</string>
+    <string name="kosher_wallpaper_preview">Kosher home wallpaper preview</string>
+    <string name="kosher_wallpaper_home_only">Home screen only · current design preview</string>
+    <string name="kosher_wallpaper_choose_image">Choose a background image</string>
+    <string name="kosher_wallpaper_default">Use the YiDream background</string>
+    <string name="kosher_wallpaper_apply">Apply to home screen</string>
+    <string name="kosher_wallpaper_wait">Preparing…</string>
+    <string name="kosher_wallpaper_applied">Kosher wallpaper applied to the home screen.</string>
+    <string name="kosher_wallpaper_apply_failed">The wallpaper could not be applied. Try again from this preview.</string>
+    <string name="kosher_wallpaper_image_unavailable">This image cannot be used. Choose another image or the YiDream background.</string>
+</resources>

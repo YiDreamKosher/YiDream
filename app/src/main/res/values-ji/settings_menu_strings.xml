@@ -2,7 +2,7 @@
 <resources>
     <string name="settings_menu_description">קלייבט וועלכע איינשטעלונג צו פירן.</string>
     <string name="settings_menu_account_detail">אייערע פרטים און דער חשבון</string>
-    <string name="settings_menu_appearance_detail">קלייבן אייער נאוויגאציע</string>
+    <string name="settings_menu_appearance_detail">אויסזען און שנעלער צוטריט</string>
     <string name="settings_menu_language_detail">ענגליש, פראנצויזיש, העברעאיש און יידיש</string>
     <string name="settings_menu_updates">YiDream דערהיינטיקונגען</string>
     <string name="settings_menu_updates_detail">זוכן און אינסטאלירן דערהיינטיקונגען</string>
