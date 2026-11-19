@@ -6,6 +6,12 @@ Plateforme de gestion d'appareils Android filtrés. Ce dépôt contient l'app An
 
 YiDream ouvre les onglets Accueil, Boutique, Sites et Réglages pour gérer les applications et les demandes de sites. Les informations de version et d’utilisation se trouvent dans Réglages. Le launcher musical est un projet distinct : [YZ MDM](https://github.com/YiDreamKosher/YZ-MDM). YiDream ne remplace pas l’écran d’accueil Android.
 
+## Android app profiles (v6.4.0, Android version code 23)
+
+During USB setup in YiDream Suite, select MP3 or Qin and review the allowed applications. Qin includes the MP3 selection plus Waze and Kosher Scan. The administrator can include additional installed apps per device and use the device record to manage compatible apps remotely.
+
+The profile controls access to installed apps. Install the apps from their authorized sources before preparing the device. App availability and firmware-specific system utilities depend on the device.
+
 ## Temporary site access (v6.3.0, Android version code 22)
 
 When requesting a site, select ongoing access, 24 hours after approval, or a specific trip end date and time. The administrator approves the requested window, and the YiDream reader applies the temporary rule until its expiry. The device evaluates the saved expiry while offline. Permanent site rules resume after a temporary window ends.

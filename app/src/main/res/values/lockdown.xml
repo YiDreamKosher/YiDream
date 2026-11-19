@@ -3,4 +3,5 @@
     <string name="lockdown_admin_recovery">Administrator maintenance</string>
     <string name="lockdown_incomplete">Device protection could not be confirmed. Contact your administrator before handing over the phone.</string>
     <string name="lockdown_retry_code">Too many attempts. Wait 15 minutes before retrying.</string>
+    <string name="usb_profile_webview">The browser %1$s also provides WebView. Choose a separate WebView provider on this phone and retry USB setup.</string>
 </resources>

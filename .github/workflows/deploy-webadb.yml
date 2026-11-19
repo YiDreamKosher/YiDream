@@ -202,6 +202,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: YiDream ${{ needs.build.outputs.version_tag }}
           body: |
+            Configure MP3 and Qin app profiles from YiDream Suite.
             Apply the MP3 or Qin profile assigned to each phone in YiDream Suite.
             Enable app and website requests separately. MP3 keeps website access disabled.
             Install approved apps from the store when a verified APK is published.
