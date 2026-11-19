@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -12,6 +13,20 @@ spec.loader.exec_module(release)
 
 
 class SiteReleaseTest(unittest.TestCase):
+    def test_release_metadata_has_unique_fields_and_matches_the_android_version(self):
+        def unique(pairs):
+            result = {}
+            for key, value in pairs:
+                self.assertNotIn(key, result, 'Duplicate release field: ' + key)
+                result[key] = value
+            return result
+        manifest = json.loads((ROOT / 'version.json').read_text(), object_pairs_hook=unique)
+        gradle = (ROOT / 'app/build.gradle').read_text()
+        codes = re.findall(r'^\s*versionCode\s+(\d+)\s*$', gradle, re.M)
+        names = re.findall(r'^\s*versionName\s+"([^"]+)"\s*$', gradle, re.M)
+        self.assertEqual(codes, [str(manifest['versionCode'])])
+        self.assertEqual(names, [manifest['versionName']])
+
     def setUp(self):
         self.apk = b'existing signed APK fixture'
         self.manifest = {'versionCode': 17, 'versionName': 'v5.9.1', 'apkUrl': release.APK_URL,

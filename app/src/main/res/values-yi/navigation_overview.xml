@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="home_overview_title">איבערבליק</string>
+  <string name="home_overview_description">אַפּס און פֿונקציעס וואָס זענען פֿאַראַן אויף דעם מיטל.</string>
+  <string name="home_apps_title">מײַנע אַפּס</string>
+  <string name="home_apps_waiting">דערלויבטע אַפּס וועלן זיך ווײַזן נאָכן סינקראָניזירן דעם מיטל.</string>
+  <string name="home_apps_empty">נאָך ניטאָ אינסטאַלירטע דערלויבטע אַפּס צו ווײַזן.</string>
+  <string name="navigation_store_tab">אַפּס</string>
+  <string name="navigation_tabs_title">נאַוויגאַציע מיט טאַבס</string>
+  <string name="navigation_swipe_hint">דריקט אויף אַ טאַב אויבן אָדער גליטשט צו דער זײַט צו בײַטן בלעטער. אייער פֿאַרוואַלטער באַשטימט וועלכע טיילן זענען פֿאַראַן.</string>
+  <string name="settings_tools_title">מכשירים און הילף</string>
+  <string name="settings_tools_description">דערהײַנטיקונגען, שוץ און קאָנטאַקט</string>
+  <string name="settings_allowed_app_updates">דערלויבטע אַפּס</string>
+</resources>

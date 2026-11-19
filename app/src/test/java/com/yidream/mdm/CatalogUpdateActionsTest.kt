@@ -44,13 +44,13 @@ class CatalogUpdateActionsTest {
         AppUpdatesDependencies.reset()
     }
 
-    private fun release() = JSONObject()
+    private fun release(pkg: String = appPackage) = JSONObject()
         .put("name", "Approved app")
-        .put("package_name", appPackage)
+        .put("package_name", pkg)
         .put("version_code", 2)
         .put("apk_url", "https://example.invalid/approved.apk")
         .put("sha256", "a".repeat(64))
-        .put("source_url", "https://play.google.com/store/apps/details?id=$appPackage")
+        .put("source_url", "https://play.google.com/store/apps/details?id=$pkg")
 
     @Test fun approvedButAbsentPackageOffersNoInstallOrExternalStoreAction() {
         CatalogScreenController(activity, MdmService(activity)).renderAppCard(release(), owner = true)
@@ -82,6 +82,31 @@ class CatalogUpdateActionsTest {
         assertTrue(descendants(content).filterIsInstance<TextView>().any {
             it.text == activity.getString(R.string.store_apk_missing)
         })
+    }
+
+    @Test fun zemerUpdateIsReachableWithoutTheStoreAndNeverBecomesAnUnapprovedFirstInstall() {
+        val pkg = "com.jtech.zemer"
+        val updates = activity.findViewById<LinearLayout>(R.id.allowedAppUpdatesContent)
+        updates.removeAllViews()
+        val catalog = CatalogScreenController(activity, MdmService(activity),
+            R.id.allowedAppUpdatesContent, allowFirstInstalls = false)
+        catalog.renderAppCard(release(pkg), owner = true)
+        assertEquals("The settings update path cannot install an absent app", 0, updates.childCount)
+        shadowOf(activity.packageManager).installPackage(PackageInfo().apply {
+            packageName = pkg
+            versionName = "1"
+            @Suppress("DEPRECATION") versionCode = 1
+            applicationInfo = ApplicationInfo().apply {
+                packageName = pkg; flags = ApplicationInfo.FLAG_INSTALLED
+            }
+        })
+        catalog.renderAppCard(release(pkg).put("name", "Zemer"), owner = true)
+        val update = descendants(updates).filterIsInstance<Button>().single()
+        assertEquals(activity.getString(R.string.store_update), update.text)
+        assertTrue(update.hasOnClickListeners())
+        assertTrue(update.isEnabled)
+        assertEquals("The Store container remains untouched", 0, content.childCount)
+        assertNull(shadowOf(activity).nextStartedActivity)
     }
 
     private fun descendants(view: View): List<View> = buildList {

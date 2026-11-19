@@ -35,11 +35,14 @@ internal data class DevicePolicy(
     val temporarySites: Map<String, Instant> = emptyMap(),
     val deviceProfile: String? = null,
     val appRequestsEnabled: Boolean = true,
-    val siteRequestsEnabled: Boolean = true
+    val siteRequestsEnabled: Boolean = true,
+    val webSectionEnabled: Boolean? = null,
+    val appStoreSectionEnabled: Boolean? = null
 ) {
     data class SiteAccess(val allowed: Boolean, val expiresAt: Instant? = null)
 
-    val webEnabled: Boolean get() = deviceProfile != "mp3"
+    val webEnabled: Boolean get() = webSectionEnabled ?: (deviceProfile != "mp3")
+    val appStoreEnabled: Boolean get() = appStoreSectionEnabled ?: (deviceProfile != "mp3")
     val canRequestSites: Boolean get() = webEnabled && siteRequestsEnabled
 
     fun allowsApp(packageName: String): Boolean =
@@ -70,6 +73,10 @@ internal data class DevicePolicy(
         .put("device_profile", deviceProfile ?: JSONObject.NULL)
         .put("app_requests_enabled", appRequestsEnabled)
         .put("site_requests_enabled", siteRequestsEnabled)
+        .apply {
+            webSectionEnabled?.let { put("web_enabled", it) }
+            appStoreSectionEnabled?.let { put("app_store_enabled", it) }
+        }
 
     fun toBootCache(boot: Int): JSONObject = toJson()
         .put("server_time", timeAtFetch.toString()).put("checked_elapsed", fetchElapsed).put("boot", boot)
@@ -134,7 +141,9 @@ internal data class DevicePolicy(
                 else value.get(key) as? Boolean ?: error("INVALID_POLICY")
             return DevicePolicy(revision, rules("apps", 100, ::validPackageName),
                 rules("sites", 200, ::validHost), temporarySites, profile,
-                enabled("app_requests_enabled"), enabled("site_requests_enabled")).apply {
+                enabled("app_requests_enabled"), enabled("site_requests_enabled"),
+                if (value.has("web_enabled")) enabled("web_enabled") else null,
+                if (value.has("app_store_enabled")) enabled("app_store_enabled") else null).apply {
                 timeAtFetch = serverTime
                 fetchElapsed = elapsedAtFetch
             }

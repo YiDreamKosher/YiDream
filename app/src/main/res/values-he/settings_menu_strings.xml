@@ -2,7 +2,7 @@
 <resources>
     <string name="settings_menu_description">בחרו הגדרה לניהול.</string>
     <string name="settings_menu_account_detail">הפרטים שלכם והכניסה לחשבון</string>
-    <string name="settings_menu_appearance_detail">בחירת אופן הניווט</string>
+    <string name="settings_menu_appearance_detail">תצוגה וגישה מהירה</string>
     <string name="settings_menu_language_detail">אנגלית, צרפתית, עברית ויידיש</string>
     <string name="settings_menu_updates">עדכוני YiDream</string>
     <string name="settings_menu_updates_detail">בדיקה והתקנה של עדכוני האפליקציה</string>

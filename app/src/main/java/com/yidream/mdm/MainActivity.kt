@@ -4,7 +4,6 @@ import android.app.AlertDialog
 import android.os.Bundle
 import android.view.View
 import android.widget.EditText
-import android.widget.RadioGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -24,11 +23,12 @@ import java.io.File
 class MainActivity : AppCompatActivity() {
 
     private lateinit var deviceOwnerManager: DeviceOwnerManager
+    private lateinit var allowedAppUpdates: CatalogScreenController
+    private lateinit var homeOverview: HomeOverviewController
     private lateinit var appUpdates: AppUpdatesController
     private lateinit var settingsMenu: SettingsMenuController
     private lateinit var unlockManager: UnlockManager
 
-    private lateinit var navigationPreferences: NavigationPreferences
     private lateinit var portal: MdmPortalController
     private lateinit var accountClient: AppAccountClient
     private lateinit var accountGate: AccountGateController
@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     private var navigationBackCallback: OnBackPressedCallback? = null
     private var visiblePolicy: DevicePolicy? = null
     private val webAvailable get() = visiblePolicy?.webEnabled != false
+    private val storeAvailable get() = visiblePolicy?.appStoreEnabled != false
 
     private lateinit var pages: Map<String, View>
     private lateinit var tabs: Map<String, View>
@@ -74,7 +75,10 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, R.string.lockdown_incomplete, Toast.LENGTH_LONG).show()
             }
         }
-        setContentView(R.layout.activity_main)
+        // Keep a newly approved workspace hidden until all core controllers and actions are ready.
+        val workspace = layoutInflater.inflate(R.layout.activity_main, null).apply { visibility = View.INVISIBLE }
+        setContentView(workspace)
+        mainVisible = false
         findViewById<View>(R.id.offlineBanner).visibility = if (access.offline) View.VISIBLE else View.GONE
         offlineExpiry?.cancel()
         offlineExpiry = access.offlineUntil?.let { expires ->
@@ -87,7 +91,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         OfflineRequests.schedule(applicationContext)
-        mainVisible = true
         selectedTab = MainNavigation.restore(restoredTab)
         visiblePolicy = RemoteDevicePolicy.current(this)
 
@@ -107,21 +110,24 @@ class MainActivity : AppCompatActivity() {
         tabs.forEach { (key, view) -> view.setOnClickListener { selectTab(key) } }
 
         portal = MdmPortalController(this, access)
+        appUpdates = AppUpdatesController(this)
+        allowedAppUpdates = CatalogScreenController(this, MdmService(this), R.id.allowedAppUpdatesContent, allowFirstInstalls = false)
+        homeOverview = HomeOverviewController(this)
+        homeOverview.refresh(visiblePolicy)
+        settingsMenu = SettingsMenuController(this) {
+            appUpdates.mount(findViewById<LinearLayout>(R.id.appUpdatesContent))
+            allowedAppUpdates.load { portal.pair() }
+        }
         findViewById<View>(R.id.rowPairDevice).setOnClickListener { portal.pair() }
-        setupNavigationPreferences()
+        setupTabNavigation()
         setupQuickSettingsLaunch()
         setupLanguagePicker()
         AdminContactController(this, findViewById<LinearLayout>(R.id.settingsContactContent)).apply {
             bind()
             bindInformation(findViewById<LinearLayout>(R.id.informationContent))
         }
-        refreshStatus()
         setupVersionAndContact()
 
-        appUpdates = AppUpdatesController(this)
-        settingsMenu = SettingsMenuController(this) {
-            appUpdates.mount(findViewById<LinearLayout>(R.id.appUpdatesContent))
-        }
         settingsMenu.bind(restoredSettingsPage)
         findViewById<View>(R.id.rowRemoveFilter).setOnClickListener { onRemoveFilterClicked() }
 
@@ -142,10 +148,7 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
-        findViewById<View>(R.id.accountReactivate).setOnClickListener {
-            hideWorkspace(reactivate = true)
-        }
-        listOf(R.id.accountCopyDeviceId, R.id.accountReactivate, R.id.accountSettingsWhatsApp, R.id.accountLogout).forEach { id ->
+        listOf(R.id.accountCopyDeviceId, R.id.accountSettingsWhatsApp, R.id.accountLogout).forEach { id ->
             findViewById<androidx.appcompat.widget.AppCompatButton>(id).apply {
                 backgroundTintList = null
                 supportBackgroundTintList = null
@@ -159,11 +162,17 @@ class MainActivity : AppCompatActivity() {
                     portal.pauseStoreUpdates()
                     mainVisible = false
                     appUpdates.cancel()
+                    allowedAppUpdates.pause()
                     RemoteDevicePolicy.cancel(applicationContext)
                     accountGate.signOut()
                 }.show()
         }
+        mainVisible = true
+        refreshStatus()
         selectTab(MainNavigation.restore(restoredTab))
+        workspace.visibility = View.VISIBLE
+        // Wallpaper support is optional; its controller disables only that card when unavailable.
+        KosherWatermarkController(this).bind()
         val currentSettings = settingsMenu
         if (!access.offline) {
             lifecycleScope.launch(Dispatchers.IO) { OfflineRequests.flush(applicationContext) }
@@ -178,14 +187,16 @@ class MainActivity : AppCompatActivity() {
         if (!mainVisible) return
         val previous = visiblePolicy
         val webChanged = webAvailable != policy.webEnabled
+        val storeChanged = storeAvailable != policy.appStoreEnabled
         val sitesChanged = previous?.canRequestSites != policy.canRequestSites ||
             previous?.sites != policy.sites || previous?.temporarySites != policy.temporarySites
         val appsChanged = previous?.deviceProfile != policy.deviceProfile || previous?.apps != policy.apps
         val appRequestsChanged = previous?.appRequestsEnabled != policy.appRequestsEnabled
         visiblePolicy = policy
+        if (storeChanged && !storeAvailable) portal.pauseStoreUpdates()
+        homeOverview.refresh(policy)
         when {
-            webChanged && !webAvailable && selectedTab == "sites" -> selectTab("store")
-            webChanged || (sitesChanged && selectedTab == "sites") ||
+            webChanged || storeChanged || (sitesChanged && selectedTab == "sites") ||
                 (appsChanged && selectedTab == "store") -> selectTab(selectedTab)
             appRequestsChanged && selectedTab == "store" -> portal.refreshAppRequests()
         }
@@ -220,35 +231,46 @@ class MainActivity : AppCompatActivity() {
 
     private fun selectTab(requestedKey: String) {
         if (!mainVisible) return
-        val key = MainNavigation.restore(requestedKey, webAvailable)
+        val key = MainNavigation.restore(requestedKey, webAvailable, storeAvailable)
         if (key != selectedTab && ::settingsMenu.isInitialized) settingsMenu.open(null)
         selectedTab = key
         applyNavigationStyle()
         if (key == "store") portal.refreshStore()
         if (key == "sites") portal.refreshSites()
-        pages.forEach { (k, v) -> v.visibility = if (k == key) View.VISIBLE else View.GONE }
+        pages.forEach { (k, v) ->
+            v.animate().cancel()
+            v.translationX = 0f
+            v.alpha = 1f
+            v.visibility = if (k == key) View.VISIBLE else View.GONE
+        }
         tabs.forEach { (k, v) ->
             v.isSelected = k == key
             v.alpha = 1.0f
-            v.setBackgroundResource(R.drawable.bg_nav_item)
+            v.setBackgroundResource(R.drawable.bg_top_tab)
             if (v is LinearLayout) for (i in 0 until v.childCount) {
                 val child = v.getChildAt(i)
-                val color = getColor(if (k == key) R.color.white else R.color.accent_navy)
+                val color = getColor(if (k == key) R.color.accent_blue else R.color.text_secondary)
                 if (child is TextView) child.setTextColor(color)
                 if (child is android.widget.ImageView) child.setColorFilter(color)
             }
         }
     }
 
-    private fun setupNavigationPreferences() {
-        navigationPreferences = NavigationPreferences(this)
-        val options = findViewById<RadioGroup>(R.id.navigationOptions)
-        options.check(if (navigationPreferences.showBottomBar) R.id.navigationTabsOption else R.id.navigationHomeOption)
-        options.setOnCheckedChangeListener { _, checkedId ->
-            navigationPreferences.showBottomBar = checkedId == R.id.navigationTabsOption
-            applyNavigationStyle()
+    private fun setupTabNavigation() {
+        findViewById<SwipeWorkspaceLayout>(R.id.workspacePager).onPageSwipe = { forward ->
+            val next = MainNavigation.adjacent(selectedTab, forward, webAvailable, storeAvailable)
+            if (next != selectedTab) {
+                selectTab(next)
+                if (android.animation.ValueAnimator.areAnimatorsEnabled()) {
+                    pages[next]?.apply {
+                        val rtl = layoutDirection == View.LAYOUT_DIRECTION_RTL
+                        translationX = width * (if (forward != rtl) 0.12f else -0.12f)
+                        alpha = 0.6f
+                        animate().translationX(0f).alpha(1f).setDuration(160).start()
+                    }
+                }
+            }
         }
-        findViewById<View>(R.id.backToHome).setOnClickListener { selectTab("home") }
         navigationBackCallback?.remove()
         navigationBackCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -266,12 +288,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyNavigationStyle() {
-        val bottomBar = navigationPreferences.showBottomBar
-        findViewById<View>(R.id.navigationBar).visibility = if (bottomBar) View.VISIBLE else View.GONE
-        findViewById<View>(R.id.compactNavigation).visibility =
-            if (!bottomBar && selectedTab != "home") View.VISIBLE else View.GONE
+        findViewById<View>(R.id.navigationBar).visibility = View.VISIBLE
         findViewById<View>(R.id.homeOpenSites).visibility = if (webAvailable) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.homeOpenStore).visibility = if (storeAvailable) View.VISIBLE else View.GONE
         tabs["sites"]?.visibility = if (webAvailable) View.VISIBLE else View.GONE
+        tabs["store"]?.visibility = if (storeAvailable) View.VISIBLE else View.GONE
     }
 
     private fun setupQuickSettingsLaunch() {
@@ -303,42 +324,25 @@ class MainActivity : AppCompatActivity() {
     // Réglages — langue
     // ------------------------------------------------------------------
 
-    private data class LangOption(val tag: String, val flag: String, val label: String)
-
     private fun setupLanguagePicker() {
-        val options = listOf(
-            LangOption("en", "🇬🇧🇺🇸", "English"),
-            LangOption("fr", "🇫🇷", "Français"),
-            LangOption("he", "🇮🇱", "עברית"),
-            LangOption("yi", "📖", "יידיש")
-        )
-
+        val options = listOf("en" to "English", "fr" to "Français", "he" to "עברית", "yi" to "ייִדיש")
         val row = findViewById<LinearLayout>(R.id.languageRow)
         row.removeAllViews()
         val currentLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.language
             ?: resources.configuration.locales[0].language
-        val density = resources.displayMetrics.density
-
-        options.forEach { opt ->
-            val item = TextView(this).apply {
-                text = "${opt.flag}\n${opt.label}"
-                textSize = 12f
-                gravity = android.view.Gravity.CENTER
-                setPadding((4 * density).toInt(), (12 * density).toInt(), (4 * density).toInt(), (12 * density).toInt())
-                minHeight = (64 * density).toInt()
-                setBackgroundResource(R.drawable.ui_language_chip)
-                isSelected = opt.tag == when (currentLanguage) { "iw" -> "he"; "ji" -> "yi"; else -> currentLanguage }
-                setTextColor(getColor(if (isSelected) R.color.accent_blue else R.color.text_secondary))
-                setTypeface(typeface, if (isSelected) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
-                contentDescription = opt.label
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                isClickable = true
-                isFocusable = true
-                setOnClickListener {
-                    AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(opt.tag))
-                }
-            }
-            row.addView(item)
+        val selected = when (currentLanguage) { "iw" -> "he"; "ji" -> "yi"; else -> currentLanguage }
+        options.forEach { (tag, label) ->
+            row.addView(androidx.appcompat.widget.AppCompatRadioButton(this).apply {
+                text = label
+                textSize = 16f
+                isChecked = tag == selected
+                minHeight = (52 * resources.displayMetrics.density).toInt()
+                setPadding((8 * resources.displayMetrics.density).toInt(), 0, (8 * resources.displayMetrics.density).toInt(), 0)
+                setTextColor(getColor(R.color.accent_navy))
+                buttonTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.accent_blue))
+                contentDescription = label
+                setOnClickListener { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag)) }
+            }, LinearLayout.LayoutParams(-1, -2))
         }
     }
 
@@ -400,18 +404,19 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
     }
 
-    private fun hideWorkspace(reactivate: Boolean = false) {
+    private fun hideWorkspace() {
         offlineExpiry?.cancel()
         offlineExpiry = null
         if (::portal.isInitialized) portal.pauseStoreUpdates()
         RemoteDevicePolicy.pause()
         if (::appUpdates.isInitialized) appUpdates.cancel()
+        if (::allowedAppUpdates.isInitialized) allowedAppUpdates.pause()
         if (mainVisible) {
             restoredTab = selectedTab
             restoredSettingsPage = if (::settingsMenu.isInitialized) settingsMenu.selected else null
             mainVisible = false
             // Mask the workspace before Android keeps a paused activity or task snapshot.
-            if (reactivate) accountGate.showReactivation() else accountGate.showLogin()
+            accountGate.showLogin()
         }
     }
 

@@ -25,8 +25,13 @@ import org.json.JSONObject
 import java.util.Locale
 
 /** Shows approved updates for apps already present on this device. */
-internal class CatalogScreenController(private val activity: AppCompatActivity, private val service: MdmService) {
-    private val container: LinearLayout? get() = activity.findViewById<LinearLayout>(R.id.storeContent)
+internal class CatalogScreenController(
+    private val activity: AppCompatActivity,
+    private val service: MdmService,
+    private val containerId: Int = R.id.storeContent,
+    private val allowFirstInstalls: Boolean = true
+) {
+    private val container: LinearLayout? get() = activity.findViewById<LinearLayout>(containerId)
     private val deviceOwner = DeviceOwnerManager(activity)
     private var generation = 0
     private var installing = false
@@ -190,7 +195,7 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
                 val apps = (0 until response.length()).mapNotNull { response.optJSONObject(it) }
                     .filter {
                         val pkg = it.optString("package_name")
-                        installedVersion(pkg) != null || firstInstallApproved(pkg)
+                        installedVersion(pkg) != null || (allowFirstInstalls && firstInstallApproved(pkg))
                     }
                 val updates = apps.filter { ready(it) && needsUpdate(it) }
                 if (updates.isNotEmpty()) {
@@ -212,7 +217,7 @@ internal class CatalogScreenController(private val activity: AppCompatActivity, 
     internal fun renderAppCard(app: JSONObject, owner: Boolean) {
         val pkg = app.optString("package_name")
         val installed = installedVersion(pkg)
-        if (installed == null && !firstInstallApproved(pkg)) return
+        if (installed == null && (!allowFirstInstalls || !firstInstallApproved(pkg))) return
         val box = card()
         val available = app.optLong("version_code")
         appHeading(box, app)

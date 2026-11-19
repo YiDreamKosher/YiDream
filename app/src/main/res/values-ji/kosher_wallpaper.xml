@@ -1,0 +1,21 @@
+<resources>
+    <string name="kosher_wallpaper_title">Kosher וואַסערצייכן</string>
+    <string name="kosher_wallpaper_summary">לייגט צו דעם וואָרט Kosher צום היים־הינטערגרונט.</string>
+    <string name="kosher_wallpaper_configure">אײַנשטעלן וואַסערצייכן</string>
+    <string name="kosher_wallpaper_remove">אויסקלײַבן אַן אַנדער הינטערגרונט</string>
+    <string name="kosher_wallpaper_active">דער Kosher הינטערגרונט איז אָנגעשטעלט.</string>
+    <string name="kosher_wallpaper_inactive">ניט אָנגעשטעלט.</string>
+    <string name="kosher_wallpaper_unavailable">דער טעלעפֿאָן דערלויבט ניט צו ענדערן דעם הינטערגרונט.</string>
+    <string name="kosher_wallpaper_picker_unavailable">עפֿנט די טעלעפֿאָן־סעטינגס צו קלײַבן אַן אַנדער הינטערגרונט.</string>
+    <string name="kosher_wallpaper_back">צוריק</string>
+    <string name="kosher_wallpaper_explanation">דאָס בײַט דעם היים־הינטערגרונט הינטער די אײַקאָנס. עס ליגט ניט איבער אַפּס און בײַט ניט דעם פֿאַרשלאָסענעם עקראַן. צו באַזײַטיקן, קלײַבט אַן אַנדער הינטערגרונט אין די טעלעפֿאָן־סעטינגס.</string>
+    <string name="kosher_wallpaper_preview">פֿאָרויסבליק פֿונעם Kosher הינטערגרונט</string>
+    <string name="kosher_wallpaper_home_only">נאָר אויפֿן היים־עקראַן · פֿאָרויסבליק פֿונעם איצטיקן אויסזען</string>
+    <string name="kosher_wallpaper_choose_image">אויסקלײַבן אַ הינטערגרונט־בילד</string>
+    <string name="kosher_wallpaper_default">נוצן דעם YiDream הינטערגרונט</string>
+    <string name="kosher_wallpaper_apply">אָנווענדן אויפֿן היים־עקראַן</string>
+    <string name="kosher_wallpaper_wait">גרייט צו…</string>
+    <string name="kosher_wallpaper_applied">דער Kosher הינטערגרונט איז אָנגעשטעלט אויפֿן היים־עקראַן.</string>
+    <string name="kosher_wallpaper_apply_failed">דער הינטערגרונט קען ניט ווערן אָנגעשטעלט. פּרובירט ווידער פֿון דעם פֿאָרויסבליק.</string>
+    <string name="kosher_wallpaper_image_unavailable">מען קען ניט ניצן דאָס בילד. קלײַבט אַן אַנדער בילד אָדער דעם YiDream הינטערגרונט.</string>
+</resources>

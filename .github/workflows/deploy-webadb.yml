@@ -158,7 +158,10 @@ jobs:
 
       - name: Compiler le site administrateur
         working-directory: webadb
-        run: npm run build
+        run: |
+          npm audit --audit-level=high
+          node --test tests/*.test.mjs
+          npm run build
 
       - name: Assembler le site public et la console Android
         run: |
@@ -202,19 +205,14 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: YiDream ${{ needs.build.outputs.version_tag }}
           body: |
-            Configure MP3 and Qin app profiles from YiDream Suite.
-            Apply the MP3 or Qin profile assigned to each phone in YiDream Suite.
-            Enable app and website requests separately. MP3 keeps website access disabled.
-            Install approved apps from the store when a verified APK is published.
-            Verify account access directly on filtered networks and keep encrypted session reads consistent.
-            Request access to a website for 24 hours or until a selected trip end time.
-            The YiDream reader closes temporary access when it expires.
-            Previously approved phones can open YiDream offline and queue website and app access requests.
-            An optional Quick Settings tile can replace the home screen launcher icon.
-            YiDream disables USB and Wi-Fi debugging after authorized device activation.
-            Managed phones block manual APK installation and hide detected app stores.
-            YiDream can update itself and already installed approved apps through the verified update channels.
-            If the previous filter prevents the first upgrade, use administrator filter removal and prepare the phone again in WebADB.
+            Navigate with fixed top tabs and horizontal swipes, including right-to-left languages.
+            Home shows the approved apps actually installed on this phone and its available features.
+            MP3 hides Sites and App Store by default. An approved administrator can reopen either section for one phone in the Suite.
+            Updates remain available in Settings → Tools and support even when App Store is hidden.
+            Choose a language from a clear list and find Updates, Filter and Contact together.
+            Preview an optional Kosher wallpaper for the phone home screen only. Android's wallpaper chooser handles its removal.
+            Keep the existing optional Quick Settings tile and launcher icon hiding controls.
+            Account access, verified APK channels and manual installation restrictions remain enforced.
           files: release/yidream.apk
           fail_on_unmatched_files: true
         env:

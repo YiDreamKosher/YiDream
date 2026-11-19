@@ -57,6 +57,7 @@ class AdminContactControllerTest {
     fun contactSubmenuPreviewKeepsContactAndInformationActions() {
         activity.findViewById<View>(R.id.homeOpenSettings).performClick()
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.settingsMenu).visibility)
+        activity.findViewById<View>(R.id.settingsOpenSupport).performClick()
         activity.findViewById<View>(R.id.settingsOpenContact).performClick()
         val density = activity.resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()

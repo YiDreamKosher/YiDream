@@ -49,6 +49,11 @@ jobs:
       - name: Rendre gradlew exécutable
         run: chmod +x ./gradlew
 
+      - name: Vérifier les accès et les informations de version
+        run: |
+          python3 tests/check-project-boundaries.py
+          python3 -m unittest discover -s tests -p '*_test.py'
+
       - name: Compiler l'APK debug
         run: ./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace
 
