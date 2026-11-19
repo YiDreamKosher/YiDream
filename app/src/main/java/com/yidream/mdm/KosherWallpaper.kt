@@ -71,7 +71,8 @@ internal interface HomeWallpaperGateway {
 }
 
 internal class SystemHomeWallpaperGateway(context: Context) : HomeWallpaperGateway {
-    private val wallpaper = WallpaperManager.getInstance(context)
+    // Looking up this optional system service must never be part of constructing the workspace.
+    private val wallpaper by lazy { WallpaperManager.getInstance(context.applicationContext) }
     override fun supported() = wallpaper.isWallpaperSupported && wallpaper.isSetWallpaperAllowed
     override fun currentId() = wallpaper.getWallpaperId(WallpaperManager.FLAG_SYSTEM)
     override fun set(bitmap: Bitmap, which: Int) = wallpaper.setBitmap(bitmap, null, false, which)

@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.View
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -100,6 +101,43 @@ class KosherWallpaperTest {
             assertEquals(ComponentName(activity, KosherWallpaperActivity::class.java),
                 shadowOf(activity).nextStartedActivity.component)
         } finally { controller.pause().stop().destroy() }
+    }
+
+    @Test fun creatingTheSystemGatewayDoesNotAcquireTheWallpaperService() {
+        // This must also work when the optional framework service cannot initialize.
+        SystemHomeWallpaperGateway(context)
+    }
+
+    @Test fun unavailableWallpaperServiceDoesNotInterruptTheSettingsHost() {
+        val controller = Robolectric.buildActivity(WatermarkSettingsHost::class.java).setup()
+        try {
+            val activity = controller.get()
+            val gateway = object : HomeWallpaperGateway {
+                override fun supported(): Boolean = throw NoClassDefFoundError("Unavailable wallpaper service")
+                override fun currentId(): Int = error("Unavailable services must not be read")
+                override fun set(bitmap: Bitmap, which: Int): Int = error("No wallpaper was requested")
+            }
+            KosherWatermarkController(activity) { gateway }.bind()
+            assertWallpaperUnavailable(activity)
+            controller.pause().resume()
+            assertWallpaperUnavailable(activity)
+        } finally { controller.pause().stop().destroy() }
+    }
+
+    @Test fun unavailableWallpaperProviderDoesNotInterruptTheSettingsHost() {
+        val controller = Robolectric.buildActivity(WatermarkSettingsHost::class.java).setup()
+        try {
+            val activity = controller.get()
+            KosherWatermarkController(activity) { throw IllegalStateException("No wallpaper provider") }.bind()
+            assertWallpaperUnavailable(activity)
+        } finally { controller.pause().stop().destroy() }
+    }
+
+    private fun assertWallpaperUnavailable(activity: AppCompatActivity) {
+        assertFalse(activity.findViewById<View>(R.id.kosherWatermarkConfigure).isEnabled)
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.kosherWatermarkRemove).visibility)
+        assertEquals(activity.getString(R.string.kosher_wallpaper_unavailable),
+            activity.findViewById<TextView>(R.id.kosherWatermarkStatus).text.toString())
     }
 
     @Test fun previewIsPrivateAndNoOverlayOrUsagePermissionIsAdded() {

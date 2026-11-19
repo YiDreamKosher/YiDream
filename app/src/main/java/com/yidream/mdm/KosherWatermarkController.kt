@@ -66,9 +66,11 @@ internal class KosherWatermarkController(private val activity: AppCompatActivity
                 .onFailure { Toast.makeText(activity, R.string.kosher_wallpaper_picker_unavailable, Toast.LENGTH_LONG).show() }
         }
         fun refresh() {
-            val gateway = gatewayFactory()
-            val supported = runCatching { gateway.supported() }.getOrDefault(false)
-            val active = KosherWallpaperState(activity).isActive(gateway)
+            // The wallpaper service is optional: unavailable vendor/framework implementations
+            // disable this card without interrupting account or device management screens.
+            val gateway = runCatching { gatewayFactory() }.getOrNull()
+            val supported = gateway != null && runCatching { gateway.supported() }.getOrDefault(false)
+            val active = supported && gateway != null && KosherWallpaperState(activity).isActive(gateway)
             configure.isEnabled = supported
             state.setText(when {
                 !supported -> R.string.kosher_wallpaper_unavailable

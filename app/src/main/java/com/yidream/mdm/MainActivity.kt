@@ -75,7 +75,10 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, R.string.lockdown_incomplete, Toast.LENGTH_LONG).show()
             }
         }
-        setContentView(R.layout.activity_main)
+        // Keep a newly approved workspace hidden until all core controllers and actions are ready.
+        val workspace = layoutInflater.inflate(R.layout.activity_main, null).apply { visibility = View.INVISIBLE }
+        setContentView(workspace)
+        mainVisible = false
         findViewById<View>(R.id.offlineBanner).visibility = if (access.offline) View.VISIBLE else View.GONE
         offlineExpiry?.cancel()
         offlineExpiry = access.offlineUntil?.let { expires ->
@@ -88,7 +91,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         OfflineRequests.schedule(applicationContext)
-        mainVisible = true
         selectedTab = MainNavigation.restore(restoredTab)
         visiblePolicy = RemoteDevicePolicy.current(this)
 
@@ -108,18 +110,6 @@ class MainActivity : AppCompatActivity() {
         tabs.forEach { (key, view) -> view.setOnClickListener { selectTab(key) } }
 
         portal = MdmPortalController(this, access)
-        findViewById<View>(R.id.rowPairDevice).setOnClickListener { portal.pair() }
-        setupTabNavigation()
-        setupQuickSettingsLaunch()
-        KosherWatermarkController(this).bind()
-        setupLanguagePicker()
-        AdminContactController(this, findViewById<LinearLayout>(R.id.settingsContactContent)).apply {
-            bind()
-            bindInformation(findViewById<LinearLayout>(R.id.informationContent))
-        }
-        refreshStatus()
-        setupVersionAndContact()
-
         appUpdates = AppUpdatesController(this)
         allowedAppUpdates = CatalogScreenController(this, MdmService(this), R.id.allowedAppUpdatesContent, allowFirstInstalls = false)
         homeOverview = HomeOverviewController(this)
@@ -128,6 +118,16 @@ class MainActivity : AppCompatActivity() {
             appUpdates.mount(findViewById<LinearLayout>(R.id.appUpdatesContent))
             allowedAppUpdates.load { portal.pair() }
         }
+        findViewById<View>(R.id.rowPairDevice).setOnClickListener { portal.pair() }
+        setupTabNavigation()
+        setupQuickSettingsLaunch()
+        setupLanguagePicker()
+        AdminContactController(this, findViewById<LinearLayout>(R.id.settingsContactContent)).apply {
+            bind()
+            bindInformation(findViewById<LinearLayout>(R.id.informationContent))
+        }
+        setupVersionAndContact()
+
         settingsMenu.bind(restoredSettingsPage)
         findViewById<View>(R.id.rowRemoveFilter).setOnClickListener { onRemoveFilterClicked() }
 
@@ -167,7 +167,12 @@ class MainActivity : AppCompatActivity() {
                     accountGate.signOut()
                 }.show()
         }
+        mainVisible = true
+        refreshStatus()
         selectTab(MainNavigation.restore(restoredTab))
+        workspace.visibility = View.VISIBLE
+        // Wallpaper support is optional; its controller disables only that card when unavailable.
+        KosherWatermarkController(this).bind()
         val currentSettings = settingsMenu
         if (!access.offline) {
             lifecycleScope.launch(Dispatchers.IO) { OfflineRequests.flush(applicationContext) }
