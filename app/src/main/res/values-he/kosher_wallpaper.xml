@@ -1,0 +1,21 @@
+<resources>
+    <string name="kosher_wallpaper_title">סימן מים Kosher</string>
+    <string name="kosher_wallpaper_summary">הוסיפו את הכיתוב Kosher לרקע מסך הבית.</string>
+    <string name="kosher_wallpaper_configure">התאמת סימן המים</string>
+    <string name="kosher_wallpaper_remove">בחירת רקע אחר</string>
+    <string name="kosher_wallpaper_active">רקע Kosher הוגדר במסך הבית.</string>
+    <string name="kosher_wallpaper_inactive">לא הוגדר.</string>
+    <string name="kosher_wallpaper_unavailable">הטלפון אינו מאפשר לשנות את הרקע.</string>
+    <string name="kosher_wallpaper_picker_unavailable">פתחו את הגדרות הטלפון כדי לבחור רקע אחר.</string>
+    <string name="kosher_wallpaper_back">חזרה</string>
+    <string name="kosher_wallpaper_explanation">הרקע מחליף את רקע מסך הבית מאחורי הסמלים. הוא אינו מוצג מעל אפליקציות ואינו משנה את רקע מסך הנעילה. להסרה בחרו רקע אחר בהגדרות הטלפון.</string>
+    <string name="kosher_wallpaper_preview">תצוגה מקדימה של רקע Kosher</string>
+    <string name="kosher_wallpaper_home_only">מסך הבית בלבד · תצוגת העיצוב הנוכחי</string>
+    <string name="kosher_wallpaper_choose_image">בחירת תמונת רקע</string>
+    <string name="kosher_wallpaper_default">שימוש ברקע YiDream</string>
+    <string name="kosher_wallpaper_apply">החלה על מסך הבית</string>
+    <string name="kosher_wallpaper_wait">מכין…</string>
+    <string name="kosher_wallpaper_applied">רקע Kosher הוגדר במסך הבית.</string>
+    <string name="kosher_wallpaper_apply_failed">לא ניתן להגדיר את הרקע. נסו שוב מתצוגה זו.</string>
+    <string name="kosher_wallpaper_image_unavailable">לא ניתן להשתמש בתמונה. בחרו תמונה אחרת או את רקע YiDream.</string>
+</resources>

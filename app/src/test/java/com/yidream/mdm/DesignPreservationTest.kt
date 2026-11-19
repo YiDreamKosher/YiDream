@@ -62,12 +62,16 @@ class DesignPreservationTest {
     @Before
     fun launchWithoutAnyRealDeviceCredential() {
         // A test-only client opens the signed-in UI; production never bypasses its server gate.
-        AppAccountDependencies.factory = { FakeAppAccountClient(savedSession = true) }
+        AppAccountDependencies.factory = { FakeAppAccountClient(savedSession = true).apply {
+            if (testName.methodName == "mp3OfflineSmallScreenKeepsHomeSettingsAndAdminOverrides")
+                access = access.copy(offline = true, offlineUntil = System.currentTimeMillis() + 60_000)
+        } }
         AppUpdatesDependencies.factory = { OfflineAppUpdateFixture }
         val app = RuntimeEnvironment.getApplication()
         val rtl = testName.methodName == "rtlScreenKeepsFourTabsAndTheNativeCatalogLayout"
         val qualifiers = when {
             rtl -> "he-ldrtl-w320dp-h640dp-xhdpi"
+            testName.methodName == "mp3OfflineSmallScreenKeepsHomeSettingsAndAdminOverrides" -> "fr-w240dp-h320dp-mdpi"
             testName.methodName == "narrowScreenKeepsNavigationAndPrimaryUpdateActionReachable" -> "fr-w320dp-h568dp-xhdpi"
             else -> "fr-w360dp-h800dp-xhdpi"
         }
@@ -149,6 +153,8 @@ class DesignPreservationTest {
         activity.findViewById<View>(R.id.settingsOpenAppearance).performClick()
         capture("settings-appearance", 360, 800)
         activity.findViewById<View>(R.id.settingsBack).performClick()
+        activity.findViewById<View>(R.id.settingsOpenSupport).performClick()
+        capture("settings-support", 360, 800)
         activity.findViewById<View>(R.id.rowUpdates).performClick()
         shadowOf(Looper.getMainLooper()).idle()
         assertNotNull(activity.findViewById<ViewGroup>(R.id.sectionUpdates).findViewById<View>(R.id.versionLabel))
@@ -229,6 +235,35 @@ class DesignPreservationTest {
                 .any { it.text.toString() == "חנות אפליקציות" })
         showCatalogFixtures()
         capture("store-rtl", 320, 640)
+    }
+
+    @Test
+    @Config(qualifiers = "fr-w240dp-h320dp-mdpi")
+    fun mp3OfflineSmallScreenKeepsHomeSettingsAndAdminOverrides() {
+        val policy = DevicePolicy(1, emptyMap(), emptyMap(), deviceProfile = "mp3")
+        fun applyPolicy(value: DevicePolicy) {
+            MainActivity::class.java.getDeclaredMethod("updateRequestNavigation", DevicePolicy::class.java)
+                .apply { isAccessible = true }.invoke(activity, value)
+        }
+        applyPolicy(policy)
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.offlineBanner).visibility)
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.tabStore).visibility)
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.tabSites).visibility)
+        layout(240, 320)
+        listOf(R.id.tabHome, R.id.tabSettings).forEach { assertFullyVisible(activity.findViewById(it), 240) }
+        capture("mp3-home-offline-small", 240, 320)
+        activity.findViewById<SwipeWorkspaceLayout>(R.id.workspacePager).onPageSwipe?.invoke(true)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(200))
+        assertPage(R.id.pageSettings)
+        capture("mp3-settings-offline-small", 240, 320)
+        activity.findViewById<View>(R.id.settingsOpenLanguage).performClick()
+        capture("mp3-languages-small", 240, 320)
+        applyPolicy(policy.copy(revision = 2, webSectionEnabled = true, appStoreSectionEnabled = true))
+        layout(240, 320)
+        pages.keys.forEach { assertFullyVisible(activity.findViewById(it), 240) }
+        select(R.id.tabHome, R.id.pageHome)
+        capture("mp3-sections-enabled-small", 240, 320)
+        assertFalse("Offline previews never register or alter a real device", MdmService(activity).paired)
     }
 
     private fun select(tab: Int, page: Int) {

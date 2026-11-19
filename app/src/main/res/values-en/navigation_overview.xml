@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="home_overview_title">Overview</string>
+  <string name="home_overview_description">Apps and features available on this device.</string>
+  <string name="home_apps_title">My apps</string>
+  <string name="home_apps_waiting">Approved apps will appear after this device synchronizes.</string>
+  <string name="home_apps_empty">No approved installed apps to show yet.</string>
+  <string name="navigation_store_tab">Apps</string>
+  <string name="navigation_tabs_title">Tab navigation</string>
+  <string name="navigation_swipe_hint">Tap a top tab or swipe sideways to change pages. Your administrator chooses which sections are available.</string>
+  <string name="settings_tools_title">Tools and support</string>
+  <string name="settings_tools_description">Updates, protection and contact</string>
+  <string name="settings_allowed_app_updates">Approved apps</string>
+</resources>

@@ -13,6 +13,7 @@ internal class SettingsMenuController(private val activity: AppCompatActivity, p
         "account" to Destination(R.id.settingsOpenAccount, R.id.settingsPageAccount, R.string.account_settings_title),
         "appearance" to Destination(R.id.settingsOpenAppearance, R.id.settingsPageAppearance, R.string.settings_appearance_section),
         "language" to Destination(R.id.settingsOpenLanguage, R.id.settingsPageLanguage, R.string.settings_languages_section),
+        "support" to Destination(R.id.settingsOpenSupport, R.id.settingsPageSupport, R.string.settings_tools_title),
         "updates" to Destination(R.id.rowUpdates, R.id.settingsPageUpdates, R.string.settings_menu_updates),
         "filter" to Destination(R.id.settingsOpenFilter, R.id.settingsPageFilter, R.string.settings_filter_section),
         "contact" to Destination(R.id.settingsOpenContact, R.id.settingsPageContact, R.string.settings_menu_contact)
@@ -42,11 +43,12 @@ internal class SettingsMenuController(private val activity: AppCompatActivity, p
 
     fun back(): Boolean {
         if (selected == null) return false
-        open(null)
+        open(if (selected in setOf("updates", "filter", "contact")) "support" else null)
         return true
     }
 
     fun setUpdateAvailable(available: Boolean) {
         activity.findViewById<View>(R.id.settingsUpdateBadge).visibility = if (available) View.VISIBLE else View.GONE
+        activity.findViewById<View>(R.id.settingsToolsUpdateBadge).visibility = if (available) View.VISIBLE else View.GONE
     }
 }

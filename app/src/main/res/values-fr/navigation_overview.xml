@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="home_overview_title">Vue d’ensemble</string>
+  <string name="home_overview_description">Les applications et fonctions disponibles pour cet appareil.</string>
+  <string name="home_apps_title">Mes applications</string>
+  <string name="home_apps_waiting">Les applications autorisées apparaîtront après la synchronisation de cet appareil.</string>
+  <string name="home_apps_empty">Aucune application autorisée et installée à afficher pour le moment.</string>
+  <string name="navigation_store_tab">Applis</string>
+  <string name="navigation_tabs_title">Navigation par onglets</string>
+  <string name="navigation_swipe_hint">Touchez un onglet en haut ou faites glisser l’écran de côté pour changer de page. Les sections autorisées sont définies par votre administrateur.</string>
+  <string name="settings_tools_title">Outils et assistance</string>
+  <string name="settings_tools_description">Mises à jour, protection et contact</string>
+  <string name="settings_allowed_app_updates">Applications autorisées</string>
+</resources>

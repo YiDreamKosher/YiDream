@@ -33,7 +33,7 @@ internal class FakeAppAccountClient(var savedSession: Boolean = false) : AppAcco
     var activationFailure: Exception? = null
     var activations = 0
     override val hasSession get() = savedSession
-    val access = AppAccess(AppAccount("test-account", "customer@example.invalid", "+33712345678", true), "90c0e024-62e3-48ec-8c4a-6d148d3745c1")
+    var access = AppAccess(AppAccount("test-account", "customer@example.invalid", "+33712345678", true), "90c0e024-62e3-48ec-8c4a-6d148d3745c1")
     override suspend fun validateSession(): AppAccess {
         validationFailure?.let { throw it }
         check(savedSession)
@@ -154,20 +154,24 @@ class AccountGateTest {
         assertNotNull(activity.findViewById<View>(R.id.pageHome))
     }
 
-    @Test fun manualReactivationKeepsTypedCodeOnResume() {
+    @Test fun signedInAccountSettingsDoNotOfferAnotherActivationCode() {
         fake.savedSession = true
         launch()
-        activity.findViewById<Button>(R.id.accountReactivate).performClick()
-        activity.findViewById<EditText>(R.id.accountCode).setText("B".repeat(32))
+        activity.findViewById<View>(R.id.tabSettings).performClick()
+        activity.findViewById<View>(R.id.settingsOpenAccount).performClick()
+        val account = activity.findViewById<ViewGroup>(R.id.settingsPageAccount)
+        fun buttons(parent: ViewGroup): List<Button> = (0 until parent.childCount).flatMap { index ->
+            val view = parent.getChildAt(index)
+            if (view is ViewGroup) buttons(view) else listOfNotNull(view as? Button)
+        }
+        assertFalse(buttons(account).any { it.text == activity.getString(R.string.account_reactivate) })
+        assertNotNull(account.findViewById<View>(R.id.accountLogout))
+        assertNotNull(account.findViewById<View>(R.id.accountSettingsWhatsApp))
+        assertEquals(0, fake.activations)
         controller.pause().resume()
         shadowOf(Looper.getMainLooper()).idle()
-        assertNull(activity.findViewById<View>(R.id.pageHome))
-        assertEquals("B".repeat(32), activity.findViewById<EditText>(R.id.accountCode).text.toString())
-        assertEquals(0, fake.activations)
-        activity.findViewById<Button>(R.id.accountContinue).performClick()
-        shadowOf(Looper.getMainLooper()).idle()
-        assertEquals(1, fake.activations)
         assertNotNull(activity.findViewById<View>(R.id.pageHome))
+        assertEquals(0, fake.activations)
     }
 
     @Test fun cachedSessionCannotExposeWorkspaceWhenValidationFails() {

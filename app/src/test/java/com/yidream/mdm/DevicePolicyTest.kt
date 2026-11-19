@@ -122,7 +122,8 @@ class DevicePolicyTest {
         assertTrue(restored.appRequestsEnabled)
         assertFalse(restored.permits(URI("https://example.org/")))
         assertFalse(restored.permits(URI("https://trip.example.org/")))
-        assertEquals("store", MainNavigation.restore("sites", webAvailable = restored.webEnabled))
+        assertFalse(restored.appStoreEnabled)
+        assertEquals("home", MainNavigation.restore("sites", restored.webEnabled, restored.appStoreEnabled))
     }
 
     @Test fun legacyPolicyPreservesBothRequestActionsAndQinUsesIndependentSwitches() {
@@ -147,6 +148,70 @@ class DevicePolicyTest {
         assertFalse(CatalogUpdatePolicy.canInstall(approved, app, null, 2L, allowFirstInstall = false))
         assertFalse(CatalogUpdatePolicy.canInstall(mp3.copy(apps = mapOf(app to false)), app, 1L, 2L,
             allowFirstInstall = false))
+    }
+
+    @Test fun adminCanEnableEachMp3SectionWithoutGrantingUnapprovedSitesOrApps() {
+        val value = JSONObject("""{
+            "revision":9,"apps":{"com.example.denied":false},"sites":{"example.org":true},
+            "device_profile":"mp3","web_enabled":true,"app_store_enabled":true,
+            "site_requests_enabled":false
+        }""")
+        val policy = DevicePolicy.parse(value)
+        assertTrue(policy.webEnabled)
+        assertTrue(policy.appStoreEnabled)
+        assertFalse(policy.canRequestSites)
+        assertTrue(policy.permits(URI("https://example.org/")))
+        assertFalse(policy.permits(URI("https://unapproved.org/")))
+        assertFalse(policy.allowsApp("com.example.denied"))
+        assertEquals(policy, DevicePolicy.parse(policy.toJson()))
+        val cached = policy.toBootCache(2)
+        val offline = requireNotNull(DevicePolicy.restoreBootCache(cached, 2, cached.getLong("checked_elapsed")))
+        assertTrue(offline.webEnabled)
+        assertTrue(offline.appStoreEnabled)
+        assertEquals(listOf("home", "store", "sites", "settings"),
+            MainNavigation.visibleTabs(offline.webEnabled, offline.appStoreEnabled))
+    }
+
+    @Test fun disablingASectionDoesNotChangeInstalledAppUpdateAuthorization() {
+        val app = "com.rhmsoft.pulsar"
+        val policy = DevicePolicy(10, emptyMap(), emptyMap(), deviceProfile = "qin",
+            webSectionEnabled = false, appStoreSectionEnabled = false)
+        assertFalse(policy.webEnabled)
+        assertFalse(policy.appStoreEnabled)
+        assertEquals(listOf("home", "settings"), MainNavigation.visibleTabs(policy.webEnabled, policy.appStoreEnabled))
+        assertTrue(CatalogUpdatePolicy.canInstall(policy, app, 1L, 2L, allowFirstInstall = false))
+        assertEquals(policy, DevicePolicy.parse(policy.toJson()))
+    }
+
+    @Test fun sectionFlagsAcceptOnlyExplicitBooleansAndPreserveLegacyProfileDefaults() {
+        val value = JSONObject("""{"revision":1,"apps":{},"sites":{}}""")
+        assertTrue(DevicePolicy.parse(value).appStoreEnabled)
+        assertTrue(DevicePolicy.parse(value.put("device_profile", "qin")).webEnabled)
+        val mp3 = DevicePolicy.parse(value.put("device_profile", "mp3"))
+        assertFalse(mp3.webEnabled)
+        assertFalse(mp3.appStoreEnabled)
+        for (key in listOf("web_enabled", "app_store_enabled")) {
+            for (invalid in listOf("true", "false", 1, JSONObject.NULL)) {
+                assertTrue(runCatching { DevicePolicy.parse(JSONObject(value.toString()).put(key, invalid)) }.isFailure)
+            }
+        }
+        val onlyWeb = DevicePolicy.parse(value.put("web_enabled", true))
+        assertTrue(onlyWeb.webEnabled)
+        assertFalse(onlyWeb.appStoreEnabled)
+    }
+
+    @Test fun installedZemerKeepsVerifiedUpdatesOnBothProfilesWithStoreHidden() {
+        val pkg = "com.jtech.zemer"
+        for (profile in listOf("mp3", "qin")) {
+            val policy = DevicePolicy(10, emptyMap(), emptyMap(), deviceProfile = profile,
+                appStoreSectionEnabled = false)
+            assertTrue(CatalogUpdatePolicy.canInstall(policy, pkg, 1L, 2L, allowFirstInstall = false))
+            assertFalse(CatalogUpdatePolicy.canInstall(policy, pkg, null, 2L, allowFirstInstall = true))
+            assertFalse(CatalogUpdatePolicy.canInstall(policy.copy(apps = mapOf(pkg to false)),
+                pkg, 1L, 2L, allowFirstInstall = false))
+            assertFalse(CatalogUpdatePolicy.isReady("https://example.invalid/zemer.apk", "", 2L))
+            assertFalse(CatalogUpdatePolicy.canInstall(policy, pkg, 2L, 1L, allowFirstInstall = false))
+        }
     }
 
     @Test fun acceptsExactPlayListingAndPackageIdentifiers() {

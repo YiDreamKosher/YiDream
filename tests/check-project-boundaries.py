@@ -29,4 +29,18 @@ settings=next(e for e in root_layout.iter() if e.get(a+'id')=='@+id/pageSettings
 assert any(e.get(a+'id')=='@+id/sectionAbout' for e in settings.iter())
 assert not any(e.get(a+'id') in ('@+id/tabAbout','@+id/pageAbout') for e in root_layout.iter())
 assert all(any(e.get(a+'id')=='@+id/'+id for e in settings.iter()) for id in ['versionLabel','settingsContactContent','rowRemoveFilter'])
-print('PASS: About, version, contact and protected filter removal remain inside Settings; optional four-tab navigation.')
+assert 'accountReactivate' not in layout
+assert 'navigationOptions' not in layout and 'compactNavigation' not in layout
+pager=next(e for e in root_layout.iter() if e.get(a+'id')=='@+id/workspacePager')
+assert pager.tag=='com.yidream.mdm.SwipeWorkspaceLayout'
+assert [e.get(a+'id') for e in root_layout].index('@+id/navigationBar') < list(root_layout).index(pager)
+nav=(p/'app/src/main/java/com/yidream/mdm/MainNavigation.kt').read_text()
+assert 'visibleTabs' in nav and 'storeAvailable' in nav and 'webAvailable' in nav
+assert 'MainNavigation.adjacent' in s and 'onPageSwipe' in s
+policy=(p/'app/src/main/java/com/yidream/mdm/RemoteDevicePolicy.kt').read_text()
+assert 'webSectionEnabled ?: (deviceProfile != "mp3")' in policy
+assert 'appStoreSectionEnabled ?: (deviceProfile != "mp3")' in policy
+assert all(any(e.get(a+'id')=='@+id/'+id for e in settings.iter()) for id in
+    ['settingsOpenSupport','settingsPageSupport','settingsToolsUpdateBadge','allowedAppUpdatesContent'])
+assert 'allowFirstInstalls = false' in s
+print('PASS: fixed top tabs support horizontal swipes and hide unavailable MP3 sections; account gate and protected settings are preserved.')
