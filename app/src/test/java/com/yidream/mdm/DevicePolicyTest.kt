@@ -108,6 +108,40 @@ class DevicePolicyTest {
         assertTrue(runCatching { DevicePolicy.parse(value) }.isFailure)
     }
 
+    @Test
+    fun onlyTheDedicatedBooleanCanEnableManagedChromeAndItSurvivesCaching() {
+        val value = JSONObject("""{"revision":4,"apps":{"com.android.chrome":true},"sites":{}}""")
+        assertFalse(DevicePolicy.parse(value).managedChromeEnabled)
+        val chrome = JSONObject().put("enabled", "true")
+        value.put("managed_chrome", chrome)
+        assertFalse(DevicePolicy.parse(value).managedChromeEnabled)
+        chrome.put("enabled", true)
+        assertFalse(DevicePolicy.parse(value, acceptsManagedChrome = false).managedChromeEnabled)
+        val enabled = DevicePolicy.parse(value)
+        assertTrue(enabled.managedChromeEnabled)
+        assertEquals(enabled, DevicePolicy.parse(enabled.toJson()))
+    }
+
+    @Test fun managedChromePolicyRetainsProfileSectionAndRequestFlagsThroughOfflineCaching() {
+        val value = JSONObject("""{
+            "revision":12,"apps":{},"sites":{"example.org":true},"temporary_sites":{},
+            "server_time":"2026-11-19T14:00:00Z","device_profile":"mp3",
+            "app_requests_enabled":false,"site_requests_enabled":false,
+            "web_enabled":true,"app_store_enabled":false,"managed_chrome":{"enabled":true}
+        }""")
+        val policy = DevicePolicy.parse(value, requireWindows = true)
+        val cache = policy.toBootCache(2)
+        val restored = requireNotNull(DevicePolicy.restoreBootCache(cache, 2, cache.getLong("checked_elapsed")))
+        assertEquals(policy, restored)
+        assertEquals("mp3", restored.deviceProfile)
+        assertTrue(restored.webEnabled)
+        assertFalse(restored.appStoreEnabled)
+        assertFalse(restored.appRequestsEnabled)
+        assertFalse(restored.canRequestSites)
+        assertTrue(restored.managedChromeEnabled)
+        assertFalse(DevicePolicy.parse(value, acceptsManagedChrome = false).managedChromeEnabled)
+    }
+
     @Test fun mp3DoesNotOpenPermanentOrTemporaryWebRulesAndKeepsSeparateAppRequestPermission() {
         val value = JSONObject("""{
             "revision":8,"apps":{},"sites":{"example.org":true},"server_time":"2026-11-12T11:00:00Z",

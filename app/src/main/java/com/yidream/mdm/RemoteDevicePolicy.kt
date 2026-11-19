@@ -37,7 +37,8 @@ internal data class DevicePolicy(
     val appRequestsEnabled: Boolean = true,
     val siteRequestsEnabled: Boolean = true,
     val webSectionEnabled: Boolean? = null,
-    val appStoreSectionEnabled: Boolean? = null
+    val appStoreSectionEnabled: Boolean? = null,
+    val managedChromeEnabled: Boolean = false
 ) {
     data class SiteAccess(val allowed: Boolean, val expiresAt: Instant? = null)
 
@@ -77,6 +78,7 @@ internal data class DevicePolicy(
             webSectionEnabled?.let { put("web_enabled", it) }
             appStoreSectionEnabled?.let { put("app_store_enabled", it) }
         }
+        .put("managed_chrome", JSONObject().put("enabled", managedChromeEnabled))
 
     fun toBootCache(boot: Int): JSONObject = toJson()
         .put("server_time", timeAtFetch.toString()).put("checked_elapsed", fetchElapsed).put("boot", boot)
@@ -109,7 +111,8 @@ internal data class DevicePolicy(
         fun parse(
             value: JSONObject,
             requireWindows: Boolean = false,
-            elapsedAtFetch: Long = SystemClock.elapsedRealtime()
+            elapsedAtFetch: Long = SystemClock.elapsedRealtime(),
+            acceptsManagedChrome: Boolean = true
         ): DevicePolicy {
             val revision = when (val number = value.get("revision")) {
                 is Int -> number.toLong()
@@ -139,11 +142,14 @@ internal data class DevicePolicy(
             require(profile == null || profile == "mp3" || profile == "qin") { "INVALID_POLICY" }
             fun enabled(key: String): Boolean = if (!value.has(key)) true
                 else value.get(key) as? Boolean ?: error("INVALID_POLICY")
+            val managedChromeEnabled = acceptsManagedChrome &&
+                value.optJSONObject("managed_chrome")?.opt("enabled") == true
             return DevicePolicy(revision, rules("apps", 100, ::validPackageName),
                 rules("sites", 200, ::validHost), temporarySites, profile,
                 enabled("app_requests_enabled"), enabled("site_requests_enabled"),
                 if (value.has("web_enabled")) enabled("web_enabled") else null,
-                if (value.has("app_store_enabled")) enabled("app_store_enabled") else null).apply {
+                if (value.has("app_store_enabled")) enabled("app_store_enabled") else null,
+                managedChromeEnabled).apply {
                 timeAtFetch = serverTime
                 fetchElapsed = elapsedAtFetch
             }
@@ -249,9 +255,10 @@ internal object RemoteDevicePolicy {
         foreground = null
     }
 
-    fun cancel(context: Context) {
+    fun cancel(context: Context, closeChrome: Boolean = true) {
         pause()
         latest = null
+        if (closeChrome) DeviceOwnerManager(context).closeManagedChrome()
         preferences(context).edit().remove("confirmed_policy").apply()
         context.getSystemService(JobScheduler::class.java)?.cancel(JOB_ID)
     }
@@ -263,8 +270,11 @@ internal object RemoteDevicePolicy {
     private suspend fun synchronize(context: Context, renewSession: Boolean): PolicySync {
         val owner = DeviceOwnerManager(context)
         val service = MdmService(context)
-        val device = service.deviceCredential() ?: return PolicySync.NotEnrolled
         if (!owner.isDeviceOwner()) return PolicySync.NotEnrolled
+        val device = service.deviceCredential() ?: run {
+            owner.closeManagedChrome()
+            return PolicySync.NotEnrolled
+        }
         if (!InternetReachability.hasInternetRoute(context)) return cachedForReader(context, device)
         return try {
             if (renewSession) AppAccountService(context).validateSession()
@@ -273,12 +283,17 @@ internal object RemoteDevicePolicy {
             check(service.deviceCredential() == device && owner.isDeviceOwner()) { "SESSION_CHANGED" }
             if ((current(context)?.revision ?: 0) > policy.revision) return PolicySync.Unavailable
 
-            val applied = owner.applyRemoteAppPolicy(policy) {
+            val chromeStatus = owner.applyManagedChrome(policy) {
+                service.deviceCredential() == device && owner.isDeviceOwner()
+            }
+            val appsApplied = owner.applyRemoteAppPolicy(policy) {
                 currentCoroutineContext().ensureActive()
                 check(service.deviceCredential() == device && owner.isDeviceOwner()) { "SESSION_CHANGED" }
             }
             currentCoroutineContext().ensureActive()
             check(service.deviceCredential() == device && owner.isDeviceOwner()) { "SESSION_CHANGED" }
+            val applied = appsApplied && chromeStatus != ManagedChromeStatus.FAILED &&
+                (!policy.managedChromeEnabled || !policy.webEnabled || chromeStatus == ManagedChromeStatus.ACTIVE)
             // Only base rules may be persisted before the server confirms the same revision.
             val credential = credentialHash(device.second)
             latest = null
@@ -290,7 +305,7 @@ internal object RemoteDevicePolicy {
                 .remove("confirmed_policy")
                 .commit()
             val report = try {
-                service.reportPolicy(device, policy.revision, applied && stored)
+                service.reportPolicy(device, policy.revision, applied && stored, chromeStatus)
             } catch (error: Exception) {
                 if (error is CancellationException || error.message == "APP_ACCESS_DENIED" ||
                     error.message == "SESSION_CHANGED" || error.message == "SESSION_EXPIRED" ||
@@ -300,6 +315,9 @@ internal object RemoteDevicePolicy {
             if (!stored) return PolicySync.Unavailable
             currentCoroutineContext().ensureActive()
             check(service.deviceCredential() == device && owner.isDeviceOwner()) { "SESSION_CHANGED" }
+            if (policy.managedChromeEnabled && report != null && (!report.managedChromeEnabled || !report.webEnabled)) {
+                owner.closeManagedChrome()
+            }
             val confirmed = report?.takeIf { it.revision == policy.revision }
             val accepted = confirmed ?: (report?.takeIf { it.revision > policy.revision } ?: policy)
                 .copy(temporarySites = emptyMap())
@@ -314,6 +332,7 @@ internal object RemoteDevicePolicy {
         } catch (error: Exception) {
             when (error.message) {
                 "APP_ACCESS_DENIED", "SESSION_EXPIRED", "SIGN_IN_REQUIRED" -> {
+                    if (service.deviceCredential() == device) owner.closeManagedChrome()
                     forgetConfirmed(context, device)
                     PolicySync.Denied
                 }

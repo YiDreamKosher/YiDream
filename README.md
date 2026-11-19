@@ -6,6 +6,17 @@ Plateforme de gestion d'appareils Android filtrés. Ce dépôt contient l'app An
 
 YiDream ouvre les onglets Accueil, Boutique, Sites et Réglages pour gérer les applications et les demandes de sites. Les informations de version et d’utilisation se trouvent dans Réglages. Le launcher musical est un projet distinct : [YZ MDM](https://github.com/YiDreamKosher/YZ-MDM). YiDream ne remplace pas l’écran d’accueil Android.
 
+## Managed Chrome pilot
+
+This draft is not a production release. Keep the paired Suite changes in draft until the physical-device checks below pass; assign a new release version only after validation.
+
+Use a managed Android phone running this pilot build with an installed, compatible Chrome release (Android Chrome 86 or newer) and a separate Android System WebView provider. In YiDream Suite, open the phone's **Remote rules** and enable **Managed Chrome** once the phone has reported compatibility. YiDream applies the phone's permanent site rules as managed Chrome restrictions, blocking navigation by default and allowing approved HTTPS domains. **Open in Chrome** appears in YiDream on request cards that are covered by permanent Chrome permissions. Use the same control in Suite to disable access.
+
+The device's Web section must also be enabled. MP3 profiles keep it disabled by default; an administrator must explicitly enable Web before managed Chrome can open. Turning Web off closes managed Chrome, and generic app approvals cannot reopen it.
+
+Timed site grants stay in the YiDream reader. Chrome's URL policies do not provide an expiration per rule. The Chrome integration controls browser navigation, and policy synchronization confirms Android's stored restrictions. Validate Chrome's effective policies at `chrome://policy`, then exercise allowed and denied domains, subdomains, redirects, and policy changes on a physical phone. The pilot does not install Chrome or enable a VPN.
+
+This implementation uses Android's public managed-configuration APIs and adds no third-party code or dependencies. Chrome is a Google application. The existing YiDream repository license is unchanged.
 ## Android app profiles (v6.4.0, Android version code 23)
 
 During USB setup in YiDream Suite, select MP3 or Qin and review the allowed applications. Qin includes the MP3 selection plus Waze and Kosher Scan. The administrator can include additional installed apps per device and use the device record to manage compatible apps remotely.

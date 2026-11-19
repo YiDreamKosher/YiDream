@@ -64,6 +64,7 @@ class DeviceOwnerManager(private val context: Context) {
         "com.bbk.appstore", "com.vivo.appstore", "org.fdroid.fdroid", "com.aurora.store"
     )
     private val lockdownPreferences get() = context.getSharedPreferences("yidream_installation_lock", Context.MODE_PRIVATE)
+    private val chromePreferences get() = context.getSharedPreferences("yidream_managed_chrome", Context.MODE_PRIVATE)
     private val usbProfilePreferences get() = context.getSharedPreferences("yidream_usb_app_profile", Context.MODE_PRIVATE)
     private val remoteProfilePreferences get() = context.getSharedPreferences("yidream_managed_app_profile", Context.MODE_PRIVATE)
     private val users get() = context.getSystemService(UserManager::class.java)
@@ -132,6 +133,58 @@ class DeviceOwnerManager(private val context: Context) {
         }
     }
 
+    /** Chrome can only be opened by the dedicated managed configuration. */
+    internal fun applyManagedChrome(policy: DevicePolicy, enrollmentIsCurrent: () -> Boolean): ManagedChromeStatus =
+        synchronized(chromePolicyLock) {
+            if (!enrollmentIsCurrent() || !isDeviceOwner()) return@synchronized ManagedChromeStatus.FAILED
+            val chrome = ChromeManagedPolicy.PACKAGE_NAME
+            val previouslyManaged = chromePreferences.getBoolean(CHROME_CONFIGURED, false)
+            val supported = ChromeManagedPolicy.canManage(context)
+            if (!policy.managedChromeEnabled || !policy.webEnabled) {
+                val closed = when {
+                    previouslyManaged -> closeManagedChrome()
+                    installedApp(chrome) != null && !chromeIsWebView() -> setAppBlocked(chrome, true)
+                    else -> true
+                }
+                return@synchronized when {
+                    !closed -> ManagedChromeStatus.FAILED
+                    supported -> ManagedChromeStatus.READY
+                    else -> ManagedChromeStatus.UNSUPPORTED
+                }
+            }
+            if (!supported) {
+                if (!chromeIsWebView()) setAppBlocked(chrome, true)
+                return@synchronized ManagedChromeStatus.UNSUPPORTED
+            }
+            // Restart Chrome on rule changes. Keep it hidden if Android cannot store the policy.
+            if (!ChromeManagedPolicy.matches(context, this, policy) &&
+                (!setAppBlocked(chrome, true) || !ChromeManagedPolicy.apply(context, this, policy))) {
+                return@synchronized ManagedChromeStatus.FAILED
+            }
+            if (!chromePreferences.edit().putBoolean(CHROME_CONFIGURED, true).commit() ||
+                !enrollmentIsCurrent()) {
+                setAppBlocked(chrome, true)
+                return@synchronized ManagedChromeStatus.FAILED
+            }
+            if (applyRemoteAppRule(chrome, true)) ManagedChromeStatus.ACTIVE else ManagedChromeStatus.FAILED
+        }
+
+    internal fun closeManagedChrome(): Boolean = synchronized(chromePolicyLock) {
+        if (!chromePreferences.getBoolean(CHROME_CONFIGURED, false)) return@synchronized true
+        !chromeIsWebView() && setAppBlocked(ChromeManagedPolicy.PACKAGE_NAME, true)
+    }
+
+    internal fun canOpenManagedChrome(policy: DevicePolicy): Boolean = synchronized(chromePolicyLock) {
+        val chrome = ChromeManagedPolicy.PACKAGE_NAME
+        policy.webEnabled && policy.managedChromeEnabled && chromePreferences.getBoolean(CHROME_CONFIGURED, false) &&
+            ChromeManagedPolicy.matches(context, this, policy) &&
+            runCatching { !dpm.isApplicationHidden(adminComponent, chrome) }.getOrDefault(false)
+    }
+
+    private fun chromeIsWebView(): Boolean = runCatching {
+        WebView.getCurrentWebViewPackage()?.packageName == ChromeManagedPolicy.PACKAGE_NAME
+    }.getOrDefault(false)
+
     internal fun canInstallCatalogApp(packageName: String): Boolean = runCatching {
         !isInstallationChannel(packageName) &&
             (installedApp(packageName) == null || !dpm.isApplicationHidden(adminComponent, packageName))
@@ -166,6 +219,8 @@ class DeviceOwnerManager(private val context: Context) {
         fun persist() = remoteProfilePreferences.edit().putStringSet("hidden", tracked.toSet()).commit()
         for (name in candidates) {
             ensureCurrent()
+            // Only the dedicated managed-browser policy may open Chrome, including on MP3.
+            if (name == ChromeManagedPolicy.PACKAGE_NAME) continue
             val explicit = policy.apps[name]
             if (!DevicePolicy.validPackageName(name) || name in protected) {
                 if (explicit != null) applied = false
@@ -408,6 +463,11 @@ class DeviceOwnerManager(private val context: Context) {
         return ready
     }
 
+    internal fun removeManagement() = synchronized(chromePolicyLock) {
+        removeBaseRestrictions()
+        dpm.clearDeviceOwnerApp(context.packageName)
+    }
+
     private fun blockUnknownSources(): Boolean {
         val restrictions = requireNotNull(users)
         val sources = baseRestrictions.filter {
@@ -440,5 +500,16 @@ class DeviceOwnerManager(private val context: Context) {
             runCatching { dpm.setApplicationHidden(adminComponent, it, false) }
         }
         lockdownPreferences.edit().clear().apply()
+        synchronized(chromePolicyLock) {
+            if (chromePreferences.getBoolean(CHROME_CONFIGURED, false)) {
+                ChromeManagedPolicy.clear(context, this)
+                chromePreferences.edit().clear().apply()
+            }
+        }
+    }
+
+    private companion object {
+        const val CHROME_CONFIGURED = "policy_configured"
+        val chromePolicyLock = Any()
     }
 }
